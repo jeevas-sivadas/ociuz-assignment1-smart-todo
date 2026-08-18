@@ -1,7 +1,10 @@
 const Todo = require("../models/Todo");
 
 
-// Allowed priority levels
+// =========================
+// Allowed Priority Levels
+// =========================
+
 const ALLOWED_PRIORITIES = [
   "high",
   "medium",
@@ -91,6 +94,10 @@ const createTodo = async (req, res) => {
     });
 
 
+    // -------------------------
+    // Populate Category
+    // -------------------------
+
     const populatedTodo =
       await todo.populate("category");
 
@@ -114,7 +121,7 @@ const createTodo = async (req, res) => {
 
 // =========================
 // Get All Todos
-// Search + Status Filter
+// Search + Status + Category + Due Date
 // =========================
 
 const getTodos = async (req, res) => {
@@ -122,18 +129,20 @@ const getTodos = async (req, res) => {
 
     const {
       search,
-      status
+      status,
+      category,
+      dueDate
     } = req.query;
 
 
     // -------------------------
-    // Base filter
+    // Base Filter
     // -------------------------
 
     const filter = {
       user: req.user._id,
 
-      // Include old Todos that don't
+      // Include old todos that don't
       // have the deleted field
       deleted: {
         $ne: true
@@ -141,9 +150,14 @@ const getTodos = async (req, res) => {
     };
 
 
-    // -------------------------
-    // Search
-    // -------------------------
+    // We use $and so that
+    // multiple filters can work together.
+    const conditions = [];
+
+
+    // =========================
+    // Search Filter
+    // =========================
 
     if (
       search &&
@@ -154,74 +168,283 @@ const getTodos = async (req, res) => {
         search.trim();
 
 
-      filter.$or = [
+      conditions.push({
+        $or: [
+          {
+            title: {
+              $regex: searchText,
+              $options: "i"
+            }
+          },
 
-        {
-          title: {
-            $regex: searchText,
-            $options: "i"
+          {
+            description: {
+              $regex: searchText,
+              $options: "i"
+            }
           }
-        },
-
-        {
-          description: {
-            $regex: searchText,
-            $options: "i"
-          }
-        }
-
-      ];
-    }
-
-
-    // -------------------------
-    // Status filter
-    // -------------------------
-
-    if (status === "all") {
-
-      // No additional filter
-
-    } else if (status === "active") {
-
-      filter.completed = false;
-
-    } else if (status === "completed") {
-
-      filter.completed = true;
-
-    } else if (status === "overdue") {
-
-      filter.completed = false;
-
-      filter.dueDate = {
-        $ne: null,
-        $lt: new Date()
-      };
-
-    } else if (status) {
-
-      return res.status(400).json({
-        message:
-          "Invalid status. Use all, active, completed, or overdue"
+        ]
       });
     }
 
 
-    // -------------------------
+    // =========================
+    // Status Filter
+    // =========================
+
+    if (
+      status &&
+      status !== "all"
+    ) {
+
+      if (status === "active") {
+
+        conditions.push({
+          completed: false
+        });
+
+      }
+
+      else if (status === "completed") {
+
+        conditions.push({
+          completed: true
+        });
+
+      }
+
+      else if (status === "overdue") {
+
+        conditions.push({
+          completed: false
+        });
+
+        conditions.push({
+          dueDate: {
+            $ne: null,
+            $lt: new Date()
+          }
+        });
+
+      }
+
+      else {
+
+        return res.status(400).json({
+          message:
+            "Invalid status. Use all, active, completed, or overdue"
+        });
+      }
+    }
+
+
+    // =========================
+    // Category Filter
+    // =========================
+
+    if (
+      category &&
+      category !== "all"
+    ) {
+
+      conditions.push({
+        category: category
+      });
+    }
+
+
+    // =========================
+    // Due Date Filter
+    // =========================
+
+    if (
+      dueDate &&
+      dueDate !== "all"
+    ) {
+
+      const now = new Date();
+
+
+      // -------------------------
+      // Today
+      // -------------------------
+
+      if (dueDate === "today") {
+
+        const startOfDay =
+          new Date(now);
+
+        startOfDay.setHours(
+          0,
+          0,
+          0,
+          0
+        );
+
+
+        const endOfDay =
+          new Date(now);
+
+        endOfDay.setHours(
+          23,
+          59,
+          59,
+          999
+        );
+
+
+        conditions.push({
+          dueDate: {
+            $gte: startOfDay,
+            $lte: endOfDay
+          }
+        });
+      }
+
+
+      // -------------------------
+      // Tomorrow
+      // -------------------------
+
+      else if (
+        dueDate === "tomorrow"
+      ) {
+
+        const startOfTomorrow =
+          new Date(now);
+
+        startOfTomorrow.setDate(
+          startOfTomorrow.getDate() + 1
+        );
+
+        startOfTomorrow.setHours(
+          0,
+          0,
+          0,
+          0
+        );
+
+
+        const endOfTomorrow =
+          new Date(startOfTomorrow);
+
+        endOfTomorrow.setHours(
+          23,
+          59,
+          59,
+          999
+        );
+
+
+        conditions.push({
+          dueDate: {
+            $gte: startOfTomorrow,
+            $lte: endOfTomorrow
+          }
+        });
+      }
+
+
+      // -------------------------
+      // Upcoming
+      // -------------------------
+
+      else if (
+        dueDate === "upcoming"
+      ) {
+
+        conditions.push({
+          dueDate: {
+            $gt: now
+          }
+        });
+      }
+
+
+      // -------------------------
+      // No Due Date
+      // -------------------------
+
+      else if (
+        dueDate === "none"
+      ) {
+
+        conditions.push({
+          $or: [
+            {
+              dueDate: null
+            },
+
+            {
+              dueDate: {
+                $exists: false
+              }
+            }
+          ]
+        });
+      }
+
+
+      // -------------------------
+      // Overdue
+      // -------------------------
+
+      else if (
+        dueDate === "overdue"
+      ) {
+
+        conditions.push({
+          completed: false
+        });
+
+        conditions.push({
+          dueDate: {
+            $ne: null,
+            $lt: now
+          }
+        });
+      }
+
+
+      // -------------------------
+      // Invalid Due Date Filter
+      // -------------------------
+
+      else {
+
+        return res.status(400).json({
+          message:
+            "Invalid dueDate. Use all, today, tomorrow, upcoming, overdue, or none"
+        });
+      }
+    }
+
+
+    // =========================
+    // Apply Conditions
+    // =========================
+
+    if (conditions.length > 0) {
+
+      filter.$and = conditions;
+    }
+
+
+    // =========================
     // Get Todos
-    // -------------------------
+    // =========================
 
-    const todos = await Todo.find(filter)
-      .populate("category")
-      .sort({
-        createdAt: -1
-      });
+    const todos =
+      await Todo.find(filter)
+        .populate("category")
+        .sort({
+          createdAt: -1
+        });
 
 
-    // -------------------------
-    // Add overdue property
-    // -------------------------
+    // =========================
+    // Add Overdue Property
+    // =========================
 
     const now = new Date();
 
@@ -244,6 +467,10 @@ const getTodos = async (req, res) => {
       });
 
 
+    // =========================
+    // Response
+    // =========================
+
     res.json(formattedTodos);
 
   } catch (error) {
@@ -265,16 +492,18 @@ const getTodos = async (req, res) => {
 const getTodo = async (req, res) => {
   try {
 
-    const todo = await Todo.findOne({
-      _id: req.params.id,
+    const todo =
+      await Todo.findOne({
 
-      user: req.user._id,
+        _id: req.params.id,
 
-      deleted: {
-        $ne: true
-      }
+        user: req.user._id,
 
-    }).populate("category");
+        deleted: {
+          $ne: true
+        }
+
+      }).populate("category");
 
 
     if (!todo) {
@@ -286,7 +515,7 @@ const getTodo = async (req, res) => {
 
 
     // -------------------------
-    // Calculate overdue
+    // Calculate Overdue
     // -------------------------
 
     const overdue =
@@ -296,10 +525,12 @@ const getTodo = async (req, res) => {
 
 
     res.json({
+
       ...todo.toObject(),
 
       overdue:
         Boolean(overdue)
+
     });
 
   } catch (error) {
@@ -321,15 +552,18 @@ const getTodo = async (req, res) => {
 const updateTodo = async (req, res) => {
   try {
 
-    const todo = await Todo.findOne({
-      _id: req.params.id,
+    const todo =
+      await Todo.findOne({
 
-      user: req.user._id,
+        _id: req.params.id,
 
-      deleted: {
-        $ne: true
-      }
-    });
+        user: req.user._id,
+
+        deleted: {
+          $ne: true
+        }
+
+      });
 
 
     if (!todo) {
@@ -350,9 +584,9 @@ const updateTodo = async (req, res) => {
     } = req.body;
 
 
-    // -------------------------
-    // Update title
-    // -------------------------
+    // =========================
+    // Update Title
+    // =========================
 
     if (title !== undefined) {
 
@@ -368,9 +602,9 @@ const updateTodo = async (req, res) => {
     }
 
 
-    // -------------------------
-    // Update description
-    // -------------------------
+    // =========================
+    // Update Description
+    // =========================
 
     if (
       description !== undefined
@@ -381,9 +615,9 @@ const updateTodo = async (req, res) => {
     }
 
 
-    // -------------------------
-    // Update due date
-    // -------------------------
+    // =========================
+    // Update Due Date
+    // =========================
 
     if (
       dueDate !== undefined
@@ -406,9 +640,9 @@ const updateTodo = async (req, res) => {
     }
 
 
-    // -------------------------
-    // Update priority
-    // -------------------------
+    // =========================
+    // Update Priority
+    // =========================
 
     if (
       priority !== undefined
@@ -431,9 +665,9 @@ const updateTodo = async (req, res) => {
     }
 
 
-    // -------------------------
-    // Update category
-    // -------------------------
+    // =========================
+    // Update Category
+    // =========================
 
     if (
       category !== undefined
@@ -444,9 +678,9 @@ const updateTodo = async (req, res) => {
     }
 
 
-    // -------------------------
-    // Update completed
-    // -------------------------
+    // =========================
+    // Update Completed
+    // =========================
 
     if (
       completed !== undefined
@@ -467,8 +701,16 @@ const updateTodo = async (req, res) => {
     }
 
 
+    // =========================
+    // Save
+    // =========================
+
     await todo.save();
 
+
+    // =========================
+    // Populate Category
+    // =========================
 
     const updatedTodo =
       await todo.populate(
@@ -476,9 +718,9 @@ const updateTodo = async (req, res) => {
       );
 
 
-    // -------------------------
-    // Calculate overdue
-    // -------------------------
+    // =========================
+    // Calculate Overdue
+    // =========================
 
     const overdue =
       !updatedTodo.completed &&
@@ -487,16 +729,22 @@ const updateTodo = async (req, res) => {
         < new Date();
 
 
+    // =========================
+    // Response
+    // =========================
+
     res.json({
 
       message:
         "Todo updated successfully",
 
       todo: {
+
         ...updatedTodo.toObject(),
 
         overdue:
           Boolean(overdue)
+
       }
 
     });
@@ -520,15 +768,18 @@ const updateTodo = async (req, res) => {
 const deleteTodo = async (req, res) => {
   try {
 
-    const todo = await Todo.findOne({
-      _id: req.params.id,
+    const todo =
+      await Todo.findOne({
 
-      user: req.user._id,
+        _id: req.params.id,
 
-      deleted: {
-        $ne: true
-      }
-    });
+        user: req.user._id,
+
+        deleted: {
+          $ne: true
+        }
+
+      });
 
 
     if (!todo) {
@@ -539,8 +790,12 @@ const deleteTodo = async (req, res) => {
     }
 
 
-    // Soft delete
+    // -------------------------
+    // Soft Delete
+    // -------------------------
+
     todo.deleted = true;
+
 
     await todo.save();
 
@@ -570,15 +825,18 @@ const deleteTodo = async (req, res) => {
 const toggleTodo = async (req, res) => {
   try {
 
-    const todo = await Todo.findOne({
-      _id: req.params.id,
+    const todo =
+      await Todo.findOne({
 
-      user: req.user._id,
+        _id: req.params.id,
 
-      deleted: {
-        $ne: true
-      }
-    });
+        user: req.user._id,
+
+        deleted: {
+          $ne: true
+        }
+
+      });
 
 
     if (!todo) {
@@ -589,7 +847,10 @@ const toggleTodo = async (req, res) => {
     }
 
 
+    // -------------------------
     // Toggle
+    // -------------------------
+
     todo.completed =
       !todo.completed;
 
@@ -597,19 +858,30 @@ const toggleTodo = async (req, res) => {
     await todo.save();
 
 
+    // -------------------------
+    // Populate Category
+    // -------------------------
+
     const updatedTodo =
       await todo.populate(
         "category"
       );
 
 
-    // Calculate overdue
+    // -------------------------
+    // Calculate Overdue
+    // -------------------------
+
     const overdue =
       !updatedTodo.completed &&
       updatedTodo.dueDate &&
       new Date(updatedTodo.dueDate)
         < new Date();
 
+
+    // -------------------------
+    // Response
+    // -------------------------
 
     res.json({
 
@@ -619,10 +891,12 @@ const toggleTodo = async (req, res) => {
           : "Todo marked as incomplete",
 
       todo: {
+
         ...updatedTodo.toObject(),
 
         overdue:
           Boolean(overdue)
+
       }
 
     });

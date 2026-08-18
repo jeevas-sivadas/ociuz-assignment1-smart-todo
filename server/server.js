@@ -9,11 +9,10 @@ const authRoutes = require("./routes/authRoutes");
 const todoRoutes = require("./routes/todoRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 
-const protect = require("./middleware/authMiddleware");
-
 const app = express();
 
-const PORT = process.env.PORT || 5000;
+const PORT =
+  process.env.PORT || 5000;
 
 
 // =========================
@@ -41,13 +40,24 @@ connectDB();
 // =========================
 
 // Authentication
-app.use("/api/auth", authRoutes);
+app.use(
+  "/api/auth",
+  authRoutes
+);
+
 
 // Todos
-app.use("/api/todos", todoRoutes);
+app.use(
+  "/api/todos",
+  todoRoutes
+);
+
 
 // Categories
-app.use("/api/categories", categoryRoutes);
+app.use(
+  "/api/categories",
+  categoryRoutes
+);
 
 
 // =========================
@@ -55,28 +65,13 @@ app.use("/api/categories", categoryRoutes);
 // =========================
 
 app.get("/", (req, res) => {
+
   res.json({
-    message: "Smart Todo API is running"
+    message:
+      "Smart Todo API is running"
   });
+
 });
-
-
-// =========================
-// Protected Test Route
-// =========================
-
-app.get(
-  "/api/auth/protected",
-  protect,
-  (req, res) => {
-    res.json({
-      message:
-        "You have access to the protected route",
-
-      user: req.user
-    });
-  }
-);
 
 
 // =========================
@@ -84,9 +79,12 @@ app.get(
 // =========================
 
 app.use((req, res) => {
+
   res.status(404).json({
-    message: "Route not found"
+    message:
+      "Route not found"
   });
+
 });
 
 
@@ -94,8 +92,13 @@ app.use((req, res) => {
 // Start Server
 // =========================
 
-app.listen(PORT, () => {
-  console.log(
-    `Server running on http://localhost:${PORT}`
-  );
-});
+app.listen(
+  PORT,
+  () => {
+
+    console.log(
+      `Server running on http://localhost:${PORT}`
+    );
+
+  }
+);
