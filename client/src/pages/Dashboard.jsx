@@ -1,4 +1,9 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
 
 import {
   getTodos,
@@ -13,35 +18,1558 @@ import {
   createCategory
 } from "../services/categoryService";
 
+import {
+  getStatistics
+} from "../services/statisticsService";
 
-function Dashboard() {
 
-  // =========================
-  // Empty Todo Form
-  // =========================
+// =========================================================
+// CONSTANTS
+// =========================================================
 
-  const emptyForm = {
-    title: "",
-    description: "",
-    dueDate: "",
-    priority: "medium",
-    category: ""
+const EMPTY_FORM = {
+  title: "",
+  description: "",
+  dueDate: "",
+  priority: "medium",
+  category: ""
+};
+
+const EMPTY_STATISTICS = {
+  total: 0,
+  active: 0,
+  completed: 0,
+  overdue: 0,
+  dueToday: 0,
+  dueTomorrow: 0,
+  upcoming: 0,
+  noDueDate: 0,
+  completionPercentage: 0,
+
+  priority: {
+    high: 0,
+    medium: 0,
+    low: 0
+  },
+
+  categories: []
+};
+
+
+// =========================================================
+// HELPER FUNCTIONS
+// =========================================================
+
+const getToken = () => {
+  return localStorage.getItem("token");
+};
+
+
+const formatDateForInput = (dateValue) => {
+  if (!dateValue) {
+    return "";
+  }
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const year = date.getFullYear();
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+
+const formatDate = (dateValue) => {
+  if (!dateValue) {
+    return "No due date";
+  }
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Invalid date";
+  }
+
+  return date.toLocaleDateString(
+    "en-IN",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    }
+  );
+};
+
+
+const getPriorityClass = (priority) => {
+  switch (priority) {
+    case "high":
+      return "bg-red-100 text-red-700";
+
+    case "low":
+      return "bg-green-100 text-green-700";
+
+    default:
+      return "bg-yellow-100 text-yellow-700";
+  }
+};
+
+
+const getUserInitial = (user) => {
+  if (!user?.name) {
+    return "U";
+  }
+
+  return user.name
+    .charAt(0)
+    .toUpperCase();
+};
+
+
+// =========================================================
+// STATISTICS PANEL
+// =========================================================
+
+function StatisticsPanel({
+  statistics,
+  statisticsLoading,
+  statisticsError,
+  showStatistics,
+  setShowStatistics,
+  dueDateFilter,
+  setDueDateFilter,
+  selectedCategory,
+  setSelectedCategory
+}) {
+
+  const highPercentage =
+    statistics.total > 0
+      ? Math.round(
+        (statistics.priority.high /
+          statistics.total) *
+        100
+      )
+      : 0;
+
+
+  const mediumPercentage =
+    statistics.total > 0
+      ? Math.round(
+        (statistics.priority.medium /
+          statistics.total) *
+        100
+      )
+      : 0;
+
+
+  const lowPercentage =
+    statistics.total > 0
+      ? Math.round(
+        (statistics.priority.low /
+          statistics.total) *
+        100
+      )
+      : 0;
+
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border mb-6 overflow-hidden">
+
+      {/* Header */}
+
+      <div className="flex items-center justify-between px-6 py-5 border-b">
+
+        <div>
+          <h3 className="text-lg font-bold text-gray-900">
+            Task Statistics
+          </h3>
+
+          <p className="text-sm text-gray-500 mt-1">
+            Overview of all your tasks
+          </p>
+        </div>
+
+
+        <button
+          type="button"
+          onClick={() =>
+            setShowStatistics(
+              (previous) => !previous
+            )
+          }
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+        >
+          {showStatistics ? "Hide" : "Show"}
+        </button>
+
+      </div>
+
+
+      {showStatistics && (
+
+        <div className="p-6">
+
+          {/* Error */}
+
+          {statisticsError && (
+            <div className="mb-5 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+              {statisticsError}
+            </div>
+          )}
+
+
+          {/* Loading */}
+
+          {statisticsLoading ? (
+
+            <div className="py-10 text-center">
+
+              <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+
+              <p className="mt-3 text-gray-500">
+                Loading statistics...
+              </p>
+
+            </div>
+
+          ) : (
+
+            <>
+
+              {/* Main statistics */}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                {/* Total */}
+
+                <div className="rounded-xl border bg-indigo-50 border-indigo-100 p-5">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+                      <p className="text-sm font-medium text-indigo-600">
+                        Total Tasks
+                      </p>
+
+                      <p className="text-3xl font-bold text-indigo-900 mt-2">
+                        {statistics.total}
+                      </p>
+                    </div>
+
+                    <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-2xl">
+                      📋
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                {/* Completed */}
+
+                <div className="rounded-xl border bg-green-50 border-green-100 p-5">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+                      <p className="text-sm font-medium text-green-600">
+                        Completed
+                      </p>
+
+                      <p className="text-3xl font-bold text-green-900 mt-2">
+                        {statistics.completed}
+                      </p>
+                    </div>
+
+                    <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-2xl">
+                      ✓
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                {/* Active */}
+
+                <div className="rounded-xl border bg-yellow-50 border-yellow-100 p-5">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+                      <p className="text-sm font-medium text-yellow-600">
+                        Active
+                      </p>
+
+                      <p className="text-3xl font-bold text-yellow-900 mt-2">
+                        {statistics.active}
+                      </p>
+                    </div>
+
+                    <div className="h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center text-2xl">
+                      ⏳
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                {/* Overdue */}
+
+                <div className="rounded-xl border bg-red-50 border-red-100 p-5">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+                      <p className="text-sm font-medium text-red-600">
+                        Overdue
+                      </p>
+
+                      <p className="text-3xl font-bold text-red-900 mt-2">
+                        {statistics.overdue}
+                      </p>
+                    </div>
+
+                    <div className="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center text-2xl">
+                      ⚠️
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {/* Due Date Overview */}
+
+              <div className="mt-6">
+
+                <h4 className="font-semibold text-gray-900 mb-4">
+                  Due Date Overview
+                </h4>
+
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDueDateFilter(
+                        dueDateFilter === "today"
+                          ? "all"
+                          : "today"
+                      )
+                    }
+                    className={`rounded-xl border p-4 text-left transition ${dueDateFilter === "today"
+                        ? "border-indigo-500 bg-indigo-50"
+                        : "hover:bg-indigo-50"
+                      }`}
+                  >
+
+                    <p className="text-sm text-gray-500">
+                      Due Today
+                    </p>
+
+                    <p className="text-2xl font-bold text-indigo-600 mt-1">
+                      {statistics.dueToday}
+                    </p>
+
+                  </button>
+
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDueDateFilter(
+                        dueDateFilter === "tomorrow"
+                          ? "all"
+                          : "tomorrow"
+                      )
+                    }
+                    className={`rounded-xl border p-4 text-left transition ${dueDateFilter === "tomorrow"
+                        ? "border-blue-500 bg-blue-50"
+                        : "hover:bg-indigo-50"
+                      }`}
+                  >
+
+                    <p className="text-sm text-gray-500">
+                      Tomorrow
+                    </p>
+
+                    <p className="text-2xl font-bold text-blue-600 mt-1">
+                      {statistics.dueTomorrow}
+                    </p>
+
+                  </button>
+
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDueDateFilter(
+                        dueDateFilter === "upcoming"
+                          ? "all"
+                          : "upcoming"
+                      )
+                    }
+                    className={`rounded-xl border p-4 text-left transition ${dueDateFilter === "upcoming"
+                        ? "border-purple-500 bg-purple-50"
+                        : "hover:bg-purple-50"
+                      }`}
+                  >
+
+                    <p className="text-sm text-gray-500">
+                      Upcoming
+                    </p>
+
+                    <p className="text-2xl font-bold text-purple-600 mt-1">
+                      {statistics.upcoming}
+                    </p>
+
+                  </button>
+
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDueDateFilter(
+                        dueDateFilter === "none"
+                          ? "all"
+                          : "none"
+                      )
+                    }
+                    className={`rounded-xl border p-4 text-left transition ${dueDateFilter === "none"
+                        ? "border-gray-500 bg-gray-100"
+                        : "hover:bg-gray-50"
+                      }`}
+                  >
+
+                    <p className="text-sm text-gray-500">
+                      No Due Date
+                    </p>
+
+                    <p className="text-2xl font-bold text-gray-700 mt-1">
+                      {statistics.noDueDate}
+                    </p>
+
+                  </button>
+
+                </div>
+
+              </div>
+
+
+              {/* Completion Progress */}
+
+              <div className="mt-6 rounded-xl border p-5">
+
+                <div className="flex items-center justify-between mb-3">
+
+                  <div>
+                    <h4 className="font-semibold text-gray-900">
+                      Completion Progress
+                    </h4>
+
+                    <p className="text-sm text-gray-500">
+                      {statistics.completed} of{" "}
+                      {statistics.total} tasks completed
+                    </p>
+                  </div>
+
+                  <span className="text-lg font-bold text-indigo-600">
+                    {statistics.completionPercentage}%
+                  </span>
+
+                </div>
+
+
+                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+
+                  <div
+                    className="h-full bg-indigo-600 rounded-full transition-all duration-500"
+                    style={{
+                      width:
+                        `${statistics.completionPercentage}%`
+                    }}
+                  />
+
+                </div>
+
+              </div>
+
+
+              {/* Priority */}
+
+              <div className="mt-6">
+
+                <h4 className="font-semibold text-gray-900 mb-4">
+                  Priority Breakdown
+                </h4>
+
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                  <PriorityCard
+                    label="High Priority"
+                    count={statistics.priority.high}
+                    percentage={highPercentage}
+                    wrapperClass="bg-red-50 border-red-100"
+                    textClass="text-red-700"
+                    countClass="text-red-800"
+                    trackClass="bg-red-100"
+                    barClass="bg-red-500"
+                  />
+
+
+                  <PriorityCard
+                    label="Medium Priority"
+                    count={statistics.priority.medium}
+                    percentage={mediumPercentage}
+                    wrapperClass="bg-yellow-50 border-yellow-100"
+                    textClass="text-yellow-700"
+                    countClass="text-yellow-800"
+                    trackClass="bg-yellow-100"
+                    barClass="bg-yellow-500"
+                  />
+
+
+                  <PriorityCard
+                    label="Low Priority"
+                    count={statistics.priority.low}
+                    percentage={lowPercentage}
+                    wrapperClass="bg-green-50 border-green-100"
+                    textClass="text-green-700"
+                    countClass="text-green-800"
+                    trackClass="bg-green-100"
+                    barClass="bg-green-500"
+                  />
+
+                </div>
+
+              </div>
+
+
+              {/* Categories */}
+
+              {statistics.categories.length > 0 && (
+
+                <div className="mt-6">
+
+                  <div className="flex items-center justify-between mb-4">
+
+                    <h4 className="font-semibold text-gray-900">
+                      Category Breakdown
+                    </h4>
+
+                    {selectedCategory !== "all" && (
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedCategory("all")
+                        }
+                        className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+                      >
+                        Clear Category
+                      </button>
+
+                    )}
+
+                  </div>
+
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+                    {statistics.categories.map(
+                      (category) => {
+
+                        const categoryId =
+                          category.id ||
+                          category._id;
+
+                        const isSelected =
+                          selectedCategory ===
+                          categoryId;
+
+
+                        const categoryPercentage =
+                          statistics.total > 0
+                            ? Math.round(
+                              (
+                                category.total /
+                                statistics.total
+                              ) * 100
+                            )
+                            : 0;
+
+
+                        return (
+
+                          <button
+                            type="button"
+                            key={categoryId}
+                            onClick={() =>
+                              setSelectedCategory(
+                                isSelected
+                                  ? "all"
+                                  : categoryId
+                              )
+                            }
+                            className={`rounded-xl border p-4 text-left transition ${isSelected
+                                ? "border-indigo-500 bg-indigo-50"
+                                : "hover:bg-gray-50"
+                              }`}
+                          >
+
+                            <div className="flex items-center justify-between gap-3">
+
+                              <div className="flex items-center gap-2 min-w-0">
+
+                                <span
+                                  className="h-3 w-3 rounded-full flex-shrink-0"
+                                  style={{
+                                    backgroundColor:
+                                      category.color ||
+                                      "#6366f1"
+                                  }}
+                                />
+
+                                <span className="text-sm font-semibold text-gray-700 truncate">
+                                  {category.name}
+                                </span>
+
+                              </div>
+
+
+                              <span className="text-lg font-bold text-gray-900">
+                                {category.total}
+                              </span>
+
+                            </div>
+
+
+                            <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  backgroundColor:
+                                    category.color ||
+                                    "#6366f1",
+
+                                  width:
+                                    `${categoryPercentage}%`
+                                }}
+                              />
+
+                            </div>
+
+
+                            <div className="flex justify-between mt-2 text-xs text-gray-500">
+
+                              <span>
+                                {category.completed} completed
+                              </span>
+
+                              <span>
+                                {category.active} active
+                              </span>
+
+                            </div>
+
+                          </button>
+
+                        );
+                      }
+                    )}
+
+                  </div>
+
+                </div>
+
+              )}
+
+            </>
+
+          )}
+
+        </div>
+
+      )}
+
+    </div>
+  );
+}
+
+
+// =========================================================
+// PRIORITY CARD
+// =========================================================
+
+function PriorityCard({
+  label,
+  count,
+  percentage,
+  wrapperClass,
+  textClass,
+  countClass,
+  trackClass,
+  barClass
+}) {
+
+  return (
+    <div
+      className={`rounded-xl border p-4 ${wrapperClass}`}
+    >
+
+      <div className="flex items-center justify-between">
+
+        <span
+          className={`text-sm font-semibold ${textClass}`}
+        >
+          {label}
+        </span>
+
+        <span
+          className={`text-xl font-bold ${countClass}`}
+        >
+          {count}
+        </span>
+
+      </div>
+
+
+      <div
+        className={`mt-3 h-2 rounded-full overflow-hidden ${trackClass}`}
+      >
+
+        <div
+          className={`h-full rounded-full ${barClass}`}
+          style={{
+            width: `${percentage}%`
+          }}
+        />
+
+      </div>
+
+
+      <p className="mt-2 text-xs text-gray-500">
+        {percentage}% of all tasks
+      </p>
+
+    </div>
+  );
+}
+
+
+// =========================================================
+// TODO FORM
+// =========================================================
+
+function TodoForm({
+  showForm,
+  editingTodoId,
+  formData,
+  formLoading,
+  formError,
+  categories,
+  categoryLoading,
+  showCategoryForm,
+  categoryName,
+  categoryColor,
+  categoryError,
+  categoryCreating,
+  setFormData,
+  setShowCategoryForm,
+  setCategoryName,
+  setCategoryColor,
+  setCategoryError,
+  handleSubmit,
+  handleCreateCategory,
+  closeForm
+}) {
+
+  if (!showForm) {
+    return null;
+  }
+
+
+  const handleChange = (event) => {
+
+    const {
+      name,
+      value
+    } = event.target;
+
+
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value
+    }));
   };
 
 
-  // =========================
-  // User
-  // =========================
+  return (
 
-  const [user, setUser] = useState(null);
+    <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+
+      <div className="flex items-center justify-between mb-6">
+
+        <div>
+
+          <h3 className="text-xl font-bold text-gray-900">
+            {editingTodoId
+              ? "Edit Todo"
+              : "Create Todo"}
+          </h3>
+
+          <p className="text-sm text-gray-500 mt-1">
+            {editingTodoId
+              ? "Update your task"
+              : "Add a new task to your list"}
+          </p>
+
+        </div>
 
 
-  // =========================
-  // Todo Form State
-  // =========================
+        <button
+          type="button"
+          onClick={closeForm}
+          disabled={formLoading}
+          className="text-gray-400 hover:text-gray-600 text-xl disabled:opacity-50"
+        >
+          ✕
+        </button>
+
+      </div>
+
+
+      {formError && (
+
+        <div className="mb-5 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {formError}
+        </div>
+
+      )}
+
+
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5"
+      >
+
+        {/* Title */}
+
+        <div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Title
+          </label>
+
+          <input
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            placeholder="Enter todo title"
+            required
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          />
+
+        </div>
+
+
+        {/* Description */}
+
+        <div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Description
+          </label>
+
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            placeholder="Enter description"
+            rows="4"
+            className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          />
+
+        </div>
+
+
+        {/* Due Date */}
+
+        <div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Due Date
+          </label>
+
+          <input
+            type="date"
+            name="dueDate"
+            value={formData.dueDate}
+            onChange={handleChange}
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          />
+
+          <p className="mt-1 text-xs text-gray-500">
+            Tasks past their due date will automatically be marked overdue.
+          </p>
+
+        </div>
+
+
+        {/* Priority */}
+
+        <div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Priority
+          </label>
+
+          <select
+            name="priority"
+            value={formData.priority}
+            onChange={handleChange}
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          >
+
+            <option value="high">
+              High
+            </option>
+
+            <option value="medium">
+              Medium
+            </option>
+
+            <option value="low">
+              Low
+            </option>
+
+          </select>
+
+        </div>
+
+
+        {/* Category */}
+
+        <div>
+
+          <div className="flex items-center justify-between mb-2">
+
+            <label className="block text-sm font-medium text-gray-700">
+              Category
+            </label>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowCategoryForm(
+                  (previous) => !previous
+                );
+
+                setCategoryError("");
+              }}
+              className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+            >
+              + Custom Category
+            </button>
+
+          </div>
+
+
+          <select
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            disabled={categoryLoading}
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+          >
+
+            <option value="">
+              {categoryLoading
+                ? "Loading categories..."
+                : "No category"}
+            </option>
+
+
+            {!categoryLoading &&
+              categories.map(
+                (category) => (
+
+                  <option
+                    key={category._id}
+                    value={category._id}
+                  >
+                    {category.name}
+                  </option>
+
+                )
+              )}
+
+          </select>
+
+
+          {showCategoryForm && (
+
+            <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+
+              <h4 className="font-semibold text-gray-900 mb-4">
+                Create Custom Category
+              </h4>
+
+
+              {categoryError && (
+
+                <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
+                  {categoryError}
+                </div>
+
+              )}
+
+
+              <div className="space-y-4">
+
+                <div>
+
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category Name
+                  </label>
+
+                  <input
+                    type="text"
+                    value={categoryName}
+                    onChange={(event) =>
+                      setCategoryName(
+                        event.target.value
+                      )
+                    }
+                    placeholder="e.g. Fitness"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                  />
+
+                </div>
+
+
+                <div>
+
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category Color
+                  </label>
+
+                  <div className="flex items-center gap-3">
+
+                    <input
+                      type="color"
+                      value={categoryColor}
+                      onChange={(event) =>
+                        setCategoryColor(
+                          event.target.value
+                        )
+                      }
+                      className="h-10 w-16 cursor-pointer rounded border border-gray-300"
+                    />
+
+                    <span className="text-sm text-gray-600">
+                      {categoryColor}
+                    </span>
+
+                  </div>
+
+                </div>
+
+
+                <div className="flex gap-3">
+
+                  <button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    disabled={categoryCreating}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {categoryCreating
+                      ? "Creating..."
+                      : "Create Category"}
+                  </button>
+
+
+                  <button
+                    type="button"
+                    onClick={() => {
+
+                      setShowCategoryForm(false);
+                      setCategoryError("");
+                      setCategoryName("");
+
+                    }}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          )}
+
+        </div>
+
+
+        {/* Buttons */}
+
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+
+          <button
+            type="button"
+            onClick={closeForm}
+            disabled={formLoading}
+            className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+
+          <button
+            type="submit"
+            disabled={formLoading}
+            className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {formLoading
+              ? editingTodoId
+                ? "Updating..."
+                : "Creating..."
+              : editingTodoId
+                ? "Update Todo"
+                : "Create Todo"}
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+  );
+}
+
+
+// =========================================================
+// FILTERS
+// =========================================================
+
+function TodoFilters({
+  search,
+  setSearch,
+  status,
+  setStatus,
+  selectedCategory,
+  setSelectedCategory,
+  dueDateFilter,
+  setDueDateFilter,
+  categories,
+  categoryLoading,
+  hasActiveFilters,
+  clearFilters
+}) {
+
+  return (
+
+    <div className="bg-white rounded-xl shadow-sm border p-4 mb-6">
+
+      <div className="mb-4">
+
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Search
+        </label>
+
+        <input
+          type="text"
+          value={search}
+          onChange={(event) =>
+            setSearch(event.target.value)
+          }
+          placeholder="Search todos by title or description..."
+          className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+        />
+
+      </div>
+
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+        <div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Status
+          </label>
+
+          <select
+            value={status}
+            onChange={(event) =>
+              setStatus(event.target.value)
+            }
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          >
+
+            <option value="all">
+              All
+            </option>
+
+            <option value="active">
+              Active
+            </option>
+
+            <option value="completed">
+              Completed
+            </option>
+
+            <option value="overdue">
+              Overdue
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Category
+          </label>
+
+          <select
+            value={selectedCategory}
+            onChange={(event) =>
+              setSelectedCategory(
+                event.target.value
+              )
+            }
+            disabled={categoryLoading}
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
+          >
+
+            <option value="all">
+              All Categories
+            </option>
+
+
+            {!categoryLoading &&
+              categories.map(
+                (category) => (
+
+                  <option
+                    key={category._id}
+                    value={category._id}
+                  >
+                    {category.name}
+                  </option>
+
+                )
+              )}
+
+          </select>
+
+        </div>
+
+
+        <div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Due Date
+          </label>
+
+          <select
+            value={dueDateFilter}
+            onChange={(event) =>
+              setDueDateFilter(
+                event.target.value
+              )
+            }
+            className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+          >
+
+            <option value="all">
+              All Due Dates
+            </option>
+
+            <option value="today">
+              Today
+            </option>
+
+            <option value="tomorrow">
+              Tomorrow
+            </option>
+
+            <option value="upcoming">
+              Upcoming
+            </option>
+
+            <option value="overdue">
+              Overdue
+            </option>
+
+            <option value="none">
+              No Due Date
+            </option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+        <div className="text-sm text-gray-500">
+
+          {hasActiveFilters
+            ? "Filters are active"
+            : "Showing all todos"}
+
+        </div>
+
+
+        {hasActiveFilters && (
+
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Clear Filters
+          </button>
+
+        )}
+
+      </div>
+
+    </div>
+  );
+}
+
+
+// =========================================================
+// TODO CARD
+// =========================================================
+
+function TodoCard({
+  todo,
+  handleToggle,
+  handleEdit,
+  handleDelete
+}) {
+
+  return (
+
+    <div
+      className={`bg-white rounded-xl shadow-sm border p-5 transition ${todo.completed
+          ? "opacity-75"
+          : ""
+        } ${todo.overdue
+          ? "border-red-300"
+          : "border-gray-200"
+        }`}
+    >
+
+      <div className="flex items-start gap-4">
+
+        <button
+          type="button"
+          onClick={() =>
+            handleToggle(todo._id)
+          }
+          className={`mt-1 h-6 w-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition ${todo.completed
+              ? "bg-green-500 border-green-500 text-white"
+              : "border-gray-300 hover:border-indigo-500"
+            }`}
+          title={
+            todo.completed
+              ? "Mark incomplete"
+              : "Mark complete"
+          }
+        >
+
+          {todo.completed && (
+            <span className="text-sm">
+              ✓
+            </span>
+          )}
+
+        </button>
+
+
+        <div className="flex-1 min-w-0">
+
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+
+            <div>
+
+              <h3
+                className={`text-lg font-semibold break-words ${todo.completed
+                    ? "line-through text-gray-400"
+                    : "text-gray-900"
+                  }`}
+              >
+                {todo.title}
+              </h3>
+
+
+              {todo.description && (
+
+                <p className="mt-1 text-sm text-gray-500 break-words">
+                  {todo.description}
+                </p>
+
+              )}
+
+            </div>
+
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleEdit(todo)
+                }
+                className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100"
+              >
+                ✏ Edit
+              </button>
+
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleDelete(todo._id)
+                }
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-100"
+              >
+                🗑 Delete
+              </button>
+
+            </div>
+
+          </div>
+
+
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getPriorityClass(
+                todo.priority
+              )}`}
+            >
+              {todo.priority} priority
+            </span>
+
+
+            {todo.category && (
+
+              <span
+                className="rounded-full px-3 py-1 text-xs font-semibold text-white"
+                style={{
+                  backgroundColor:
+                    todo.category.color ||
+                    "#6366f1"
+                }}
+              >
+                {todo.category.name}
+              </span>
+
+            )}
+
+
+            {todo.dueDate && (
+
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${todo.overdue
+                    ? "bg-red-100 text-red-700"
+                    : "bg-gray-100 text-gray-600"
+                  }`}
+              >
+
+                {todo.overdue
+                  ? "⚠ Overdue · "
+                  : "Due · "}
+
+                {formatDate(
+                  todo.dueDate
+                )}
+
+              </span>
+
+            )}
+
+
+            {!todo.dueDate && (
+
+              <span className="rounded-full bg-gray-100 text-gray-500 px-3 py-1 text-xs font-semibold">
+                No due date
+              </span>
+
+            )}
+
+
+            {todo.completed && (
+
+              <span className="rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">
+                ✓ Completed
+              </span>
+
+            )}
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+// =========================================================
+// MAIN DASHBOARD
+// =========================================================
+
+function Dashboard() {
+
+  // =======================================================
+  // USER
+  // =======================================================
+
+  const [user, setUser] =
+    useState(null);
+
+
+  // =======================================================
+  // FORM
+  // =======================================================
 
   const [formData, setFormData] =
-    useState(emptyForm);
+    useState(EMPTY_FORM);
 
   const [showForm, setShowForm] =
     useState(false);
@@ -56,9 +1584,9 @@ function Dashboard() {
     useState("");
 
 
-  // =========================
-  // Todos
-  // =========================
+  // =======================================================
+  // TODOS
+  // =======================================================
 
   const [todos, setTodos] =
     useState([]);
@@ -70,9 +1598,9 @@ function Dashboard() {
     useState("");
 
 
-  // =========================
-  // Categories
-  // =========================
+  // =======================================================
+  // CATEGORIES
+  // =======================================================
 
   const [categories, setCategories] =
     useState([]);
@@ -81,9 +1609,9 @@ function Dashboard() {
     useState(true);
 
 
-  // =========================
-  // Custom Category
-  // =========================
+  // =======================================================
+  // CUSTOM CATEGORY
+  // =======================================================
 
   const [showCategoryForm, setShowCategoryForm] =
     useState(false);
@@ -101,9 +1629,9 @@ function Dashboard() {
     useState(false);
 
 
-  // =========================
-  // Search / Filters
-  // =========================
+  // =======================================================
+  // FILTERS
+  // =======================================================
 
   const [search, setSearch] =
     useState("");
@@ -118,20 +1646,96 @@ function Dashboard() {
     useState("all");
 
 
-  // =========================
-  // Load User
-  // =========================
+  // =======================================================
+  // STATISTICS
+  // =======================================================
+
+  const [statistics, setStatistics] =
+    useState(EMPTY_STATISTICS);
+
+  const [statisticsLoading, setStatisticsLoading] =
+    useState(true);
+
+  const [statisticsError, setStatisticsError] =
+    useState("");
+
+  const [showStatistics, setShowStatistics] =
+    useState(true);
+
+
+  // =======================================================
+  // REFRESH
+  // =======================================================
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+
+  // =======================================================
+  // TOAST
+  // =======================================================
+
+  const [toast, setToast] =
+    useState({
+      show: false,
+      type: "success",
+      message: ""
+    });
+
+
+  // =======================================================
+  // DELETE CONFIRMATION
+  // =======================================================
+
+  const [deleteTodoId, setDeleteTodoId] =
+    useState(null);
+
+  const [deleteLoading, setDeleteLoading] =
+    useState(false);
+
+
+  // =======================================================
+  // SHOW TOAST
+  // =======================================================
+
+  const showToast =
+    useCallback(
+      (message, type = "success") => {
+
+        setToast({
+          show: true,
+          type,
+          message
+        });
+
+
+        setTimeout(() => {
+
+          setToast({
+            show: false,
+            type: "success",
+            message: ""
+          });
+
+        }, 3000);
+
+      },
+      []
+    );
+
+
+  // =======================================================
+  // LOAD USER
+  // =======================================================
 
   useEffect(() => {
 
-    const token =
-      localStorage.getItem("token");
+    const token = getToken();
 
     const storedUser =
       localStorage.getItem("user");
 
 
-    // No token = not logged in
     if (!token) {
 
       window.location.href = "/";
@@ -140,7 +1744,6 @@ function Dashboard() {
     }
 
 
-    // Try to load user
     if (storedUser) {
 
       try {
@@ -158,172 +1761,294 @@ function Dashboard() {
         );
 
         localStorage.removeItem("user");
+
       }
+
     }
 
   }, []);
 
 
-  // =========================
-  // Load Categories
-  // =========================
+  // =======================================================
+  // LOAD CATEGORIES
+  // =======================================================
 
-  const loadCategories = async () => {
+  const loadCategories =
+    useCallback(async () => {
 
-    try {
+      try {
 
-      setCategoryLoading(true);
+        setCategoryLoading(true);
 
-      const token =
-        localStorage.getItem("token");
+        const token =
+          getToken();
 
 
-      if (!token) {
+        if (!token) {
+          return;
+        }
+
+
+        const data =
+          await getCategories(token);
+
+
+        setCategories(
+          Array.isArray(data)
+            ? data
+            : []
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Failed to load categories:",
+          error.response?.data ||
+          error.message
+        );
+
+        setCategories([]);
+
+      } finally {
 
         setCategoryLoading(false);
 
-        return;
       }
 
-
-      const data =
-        await getCategories(token);
+    }, []);
 
 
-      setCategories(
-        Array.isArray(data)
-          ? data
-          : []
-      );
+  // =======================================================
+  // LOAD TODOS
+  // =======================================================
 
-    } catch (error) {
+  const loadTodos =
+    useCallback(async () => {
 
-      console.error(
-        "Failed to load categories:",
-        error.response?.data ||
-        error.message
-      );
+      try {
 
-      setCategories([]);
-
-    } finally {
-
-      setCategoryLoading(false);
-    }
-  };
+        setTodoLoading(true);
+        setTodoError("");
 
 
-  // =========================
-  // Load Todos
-  // =========================
-
-  const loadTodos = async () => {
-
-    try {
-
-      setTodoLoading(true);
-
-      setTodoError("");
+        const token =
+          getToken();
 
 
-      const token =
-        localStorage.getItem("token");
+        if (!token) {
+
+          setTodoError(
+            "You are not logged in."
+          );
+
+          setTodos([]);
+
+          return;
+        }
 
 
-      if (!token) {
+        const params = {
 
-        setTodoError(
-          "You are not logged in."
+          search:
+            search.trim(),
+
+          status,
+
+          category:
+            selectedCategory,
+
+          dueDate:
+            dueDateFilter
+
+        };
+
+
+        const data =
+          await getTodos(
+            params,
+            token
+          );
+
+
+        setTodos(
+          Array.isArray(data)
+            ? data
+            : []
         );
+
+      } catch (error) {
+
+        console.error(
+          "Failed to load todos:",
+          error.response?.data ||
+          error.message
+        );
+
+
+        const message =
+          error.response?.data?.message ||
+          "Failed to load todos";
+
+
+        setTodoError(message);
+
+
+        showToast(
+          message,
+          "error"
+        );
+
 
         setTodos([]);
 
-        return;
+      } finally {
+
+        setTodoLoading(false);
+
       }
 
-
-      // =========================
-      // Filter Parameters
-      // =========================
-
-      const params = {
-
-        search:
-          search.trim(),
-
-        status,
-
-        category:
-          selectedCategory,
-
-        dueDate:
-          dueDateFilter
-
-      };
+    }, [
+      search,
+      status,
+      selectedCategory,
+      dueDateFilter,
+      showToast
+    ]);
 
 
-      console.log(
-        "TODO FILTERS:",
-        params
-      );
+  // =======================================================
+  // LOAD STATISTICS
+  // =======================================================
+
+  const loadStatistics =
+    useCallback(async () => {
+
+      try {
+
+        setStatisticsLoading(true);
+        setStatisticsError("");
 
 
-      // =========================
-      // Get Todos
-      // =========================
+        const token =
+          getToken();
 
-      const data =
-        await getTodos(
-          params,
-          token
+
+        if (!token) {
+
+          setStatisticsError(
+            "You are not logged in."
+          );
+
+          return;
+        }
+
+
+        const data =
+          await getStatistics(token);
+
+
+        setStatistics({
+
+          total:
+            data?.total || 0,
+
+          active:
+            data?.active || 0,
+
+          completed:
+            data?.completed || 0,
+
+          overdue:
+            data?.overdue || 0,
+
+          dueToday:
+            data?.dueToday || 0,
+
+          dueTomorrow:
+            data?.dueTomorrow || 0,
+
+          upcoming:
+            data?.upcoming || 0,
+
+          noDueDate:
+            data?.noDueDate || 0,
+
+          completionPercentage:
+            data?.completionPercentage || 0,
+
+          priority: {
+
+            high:
+              data?.priority?.high || 0,
+
+            medium:
+              data?.priority?.medium || 0,
+
+            low:
+              data?.priority?.low || 0
+
+          },
+
+          categories:
+            Array.isArray(
+              data?.categories
+            )
+              ? data.categories
+              : []
+
+        });
+
+      } catch (error) {
+
+        console.error(
+          "Failed to load statistics:",
+          error.response?.data ||
+          error.message
         );
 
 
-      setTodos(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-
-    } catch (error) {
-
-      console.error(
-        "Failed to load todos:",
-        error.response?.data ||
-        error.message
-      );
+        const message =
+          error.response?.data?.message ||
+          "Failed to load statistics";
 
 
-      setTodoError(
-        error.response?.data?.message ||
-        "Failed to load todos"
-      );
+        setStatisticsError(message);
 
 
-      setTodos([]);
+        showToast(
+          message,
+          "error"
+        );
 
-    } finally {
+      } finally {
 
-      setTodoLoading(false);
-    }
-  };
+        setStatisticsLoading(false);
+
+      }
+
+    }, [
+      showToast
+    ]);
 
 
-  // =========================
-  // Initial Load
-  // =========================
+  // =======================================================
+  // INITIAL LOAD
+  // =======================================================
 
   useEffect(() => {
 
     loadCategories();
+    loadStatistics();
 
-  }, []);
+  }, [
+    loadCategories,
+    loadStatistics
+  ]);
 
 
-  // =========================
-  // Load Todos
-  // Filter Changes
-  // =========================
+  // =======================================================
+  // FILTER-BASED TODO LOAD
+  // =======================================================
 
   useEffect(() => {
 
@@ -338,48 +2063,78 @@ function Dashboard() {
     return () =>
       clearTimeout(timer);
 
-  }, [
-    search,
-    status,
-    selectedCategory,
-    dueDateFilter
-  ]);
+  }, [loadTodos]);
 
 
-  // =========================
-  // Handle Form Input
-  // =========================
+  // =======================================================
+  // REFRESH ALL DATA
+  // =======================================================
 
-  const handleChange = (e) => {
+  const refreshAll =
+    useCallback(async () => {
 
-    const {
-      name,
-      value
-    } = e.target;
-
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+      if (refreshing) {
+        return;
+      }
 
 
-  // =========================
-  // Open Create Form
-  // =========================
+      try {
+
+        setRefreshing(true);
+
+        await Promise.all([
+          loadTodos(),
+          loadCategories(),
+          loadStatistics()
+        ]);
+
+
+        showToast(
+          "Dashboard refreshed!",
+          "success"
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Failed to refresh dashboard:",
+          error
+        );
+
+      } finally {
+
+        setRefreshing(false);
+
+      }
+
+    }, [
+      loadTodos,
+      loadCategories,
+      loadStatistics,
+      refreshing,
+      showToast
+    ]);
+
+
+  // =======================================================
+  // OPEN CREATE FORM
+  // =======================================================
 
   const openCreateForm = () => {
 
     setEditingTodoId(null);
 
     setFormData({
-      ...emptyForm
+      ...EMPTY_FORM
     });
 
     setFormError("");
 
     setShowCategoryForm(false);
+
+    setCategoryName("");
+
+    setCategoryColor("#6366f1");
 
     setCategoryError("");
 
@@ -390,33 +2145,15 @@ function Dashboard() {
       top: 0,
       behavior: "smooth"
     });
+
   };
 
 
-  // =========================
-  // Open Edit Form
-  // =========================
+  // =======================================================
+  // OPEN EDIT FORM
+  // =======================================================
 
   const handleEdit = (todo) => {
-
-    let formattedDate = "";
-
-
-    if (todo.dueDate) {
-
-      const date =
-        new Date(todo.dueDate);
-
-
-      if (!isNaN(date.getTime())) {
-
-        formattedDate =
-          date
-            .toISOString()
-            .split("T")[0];
-      }
-    }
-
 
     setEditingTodoId(
       todo._id
@@ -432,7 +2169,9 @@ function Dashboard() {
         todo.description || "",
 
       dueDate:
-        formattedDate,
+        formatDateForInput(
+          todo.dueDate
+        ),
 
       priority:
         todo.priority || "medium",
@@ -449,6 +2188,10 @@ function Dashboard() {
 
     setShowCategoryForm(false);
 
+    setCategoryName("");
+
+    setCategoryColor("#6366f1");
+
     setCategoryError("");
 
     setShowForm(true);
@@ -458,12 +2201,13 @@ function Dashboard() {
       top: 0,
       behavior: "smooth"
     });
+
   };
 
 
-  // =========================
-  // Close Form
-  // =========================
+  // =======================================================
+  // CLOSE FORM
+  // =======================================================
 
   const closeForm = () => {
 
@@ -477,7 +2221,7 @@ function Dashboard() {
     setEditingTodoId(null);
 
     setFormData({
-      ...emptyForm
+      ...EMPTY_FORM
     });
 
     setFormError("");
@@ -489,203 +2233,317 @@ function Dashboard() {
     setCategoryColor("#6366f1");
 
     setCategoryError("");
+
   };
 
 
-  // =========================
-  // Create / Update Todo
-  // =========================
+  // =======================================================
+  // CREATE / UPDATE TODO
+  // =======================================================
 
-  const handleSubmit = async (e) => {
+  const handleSubmit =
+    async (event) => {
 
-    e.preventDefault();
+      event.preventDefault();
 
-    setFormError("");
-
-
-    if (!formData.title.trim()) {
-
-      setFormError(
-        "Title is required."
-      );
-
-      return;
-    }
+      setFormError("");
 
 
-    try {
-
-      setFormLoading(true);
-
-
-      const token =
-        localStorage.getItem("token");
-
-
-      if (!token) {
+      if (!formData.title.trim()) {
 
         setFormError(
-          "You are not logged in."
+          "Title is required."
+        );
+
+        showToast(
+          "Title is required.",
+          "error"
         );
 
         return;
       }
 
 
-      const todoData = {
+      try {
 
-        title:
-          formData.title.trim(),
-
-        description:
-          formData.description.trim(),
-
-        dueDate:
-          formData.dueDate || null,
-
-        priority:
-          formData.priority,
-
-        category:
-          formData.category || null
-
-      };
+        setFormLoading(true);
 
 
-      // UPDATE
+        const token =
+          getToken();
 
-      if (editingTodoId) {
 
-        await updateTodo(
-          editingTodoId,
-          todoData,
+        if (!token) {
+
+          setFormError(
+            "You are not logged in."
+          );
+
+          showToast(
+            "You are not logged in.",
+            "error"
+          );
+
+          return;
+        }
+
+
+        const todoData = {
+
+          title:
+            formData.title.trim(),
+
+          description:
+            formData.description.trim(),
+
+          dueDate:
+            formData.dueDate || null,
+
+          priority:
+            formData.priority,
+
+          category:
+            formData.category || null
+
+        };
+
+
+        if (editingTodoId) {
+
+          await updateTodo(
+            editingTodoId,
+            todoData,
+            token
+          );
+
+
+          showToast(
+            "Todo updated successfully!",
+            "success"
+          );
+
+        } else {
+
+          await createTodo(
+            todoData,
+            token
+          );
+
+
+          showToast(
+            "Todo created successfully!",
+            "success"
+          );
+
+        }
+
+
+        closeForm();
+
+
+        await Promise.all([
+          loadTodos(),
+          loadStatistics()
+        ]);
+
+      } catch (error) {
+
+        console.error(
+          "Failed to save todo:",
+          error.response?.data ||
+          error.message
+        );
+
+
+        const message =
+          error.response?.data?.message ||
+          "Failed to save todo";
+
+
+        setFormError(message);
+
+
+        showToast(
+          message,
+          "error"
+        );
+
+      } finally {
+
+        setFormLoading(false);
+
+      }
+
+    };
+
+
+  // =======================================================
+  // TOGGLE TODO
+  // =======================================================
+
+  const handleToggle =
+    async (todoId) => {
+
+      try {
+
+        const token =
+          getToken();
+
+
+        if (!token) {
+
+          showToast(
+            "You are not logged in.",
+            "error"
+          );
+
+          return;
+        }
+
+
+        await toggleTodo(
+          todoId,
           token
+        );
+
+
+        showToast(
+          "Todo status updated!",
+          "success"
+        );
+
+
+        await Promise.all([
+          loadTodos(),
+          loadStatistics()
+        ]);
+
+      } catch (error) {
+
+        console.error(
+          "Failed to toggle todo:",
+          error.response?.data ||
+          error.message
+        );
+
+
+        showToast(
+          error.response?.data?.message ||
+          "Failed to update todo.",
+          "error"
         );
 
       }
 
-      // CREATE
-
-      else {
-
-        await createTodo(
-          todoData,
-          token
-        );
-      }
+    };
 
 
-      closeForm();
+  // =======================================================
+  // OPEN DELETE CONFIRMATION
+  // =======================================================
 
-      await loadTodos();
+  const handleDelete = (todoId) => {
 
-    } catch (error) {
+    setDeleteTodoId(todoId);
 
-      console.error(
-        "Failed to save todo:",
-        error.response?.data ||
-        error.message
-      );
-
-
-      setFormError(
-        error.response?.data?.message ||
-        "Failed to save todo"
-      );
-
-    } finally {
-
-      setFormLoading(false);
-    }
   };
 
 
-  // =========================
-  // Toggle Todo
-  // =========================
+  // =======================================================
+  // CANCEL DELETE
+  // =======================================================
 
-  const handleToggle = async (todoId) => {
+  const cancelDelete = () => {
 
-    try {
-
-      const token =
-        localStorage.getItem("token");
-
-
-      if (!token) {
-        return;
-      }
-
-
-      await toggleTodo(
-        todoId,
-        token
-      );
-
-
-      await loadTodos();
-
-    } catch (error) {
-
-      console.error(
-        "Failed to toggle todo:",
-        error.response?.data ||
-        error.message
-      );
-    }
-  };
-
-
-  // =========================
-  // Delete Todo
-  // =========================
-
-  const handleDelete = async (todoId) => {
-
-    const confirmed =
-      window.confirm(
-        "Are you sure you want to delete this todo?"
-      );
-
-
-    if (!confirmed) {
+    if (deleteLoading) {
       return;
     }
 
 
-    try {
+    setDeleteTodoId(null);
 
-      const token =
-        localStorage.getItem("token");
+  };
 
 
-      if (!token) {
+  // =======================================================
+  // CONFIRM DELETE
+  // =======================================================
+
+  const confirmDelete =
+    async () => {
+
+      if (!deleteTodoId) {
         return;
       }
 
 
-      await deleteTodo(
-        todoId,
-        token
-      );
+      try {
+
+        setDeleteLoading(true);
 
 
-      await loadTodos();
-
-    } catch (error) {
-
-      console.error(
-        "Failed to delete todo:",
-        error.response?.data ||
-        error.message
-      );
-    }
-  };
+        const token =
+          getToken();
 
 
-  // =========================
-  // Create Custom Category
-  // =========================
+        if (!token) {
+
+          showToast(
+            "You are not logged in.",
+            "error"
+          );
+
+          return;
+        }
+
+
+        await deleteTodo(
+          deleteTodoId,
+          token
+        );
+
+
+        showToast(
+          "Todo deleted successfully!",
+          "success"
+        );
+
+
+        setDeleteTodoId(null);
+
+
+        await Promise.all([
+          loadTodos(),
+          loadStatistics()
+        ]);
+
+      } catch (error) {
+
+        console.error(
+          "Failed to delete todo:",
+          error.response?.data ||
+          error.message
+        );
+
+
+        showToast(
+          error.response?.data?.message ||
+          "Failed to delete todo.",
+          "error"
+        );
+
+      } finally {
+
+        setDeleteLoading(false);
+
+      }
+
+    };
+
+
+  // =======================================================
+  // CREATE CATEGORY
+  // =======================================================
 
   const handleCreateCategory =
     async () => {
@@ -703,6 +2561,12 @@ function Dashboard() {
           "Category name is required"
         );
 
+
+        showToast(
+          "Category name is required",
+          "error"
+        );
+
         return;
       }
 
@@ -713,13 +2577,19 @@ function Dashboard() {
 
 
         const token =
-          localStorage.getItem("token");
+          getToken();
 
 
         if (!token) {
 
           setCategoryError(
             "You are not logged in"
+          );
+
+
+          showToast(
+            "You are not logged in",
+            "error"
           );
 
           return;
@@ -745,12 +2615,21 @@ function Dashboard() {
 
         if (createdCategory?._id) {
 
-          setFormData((prev) => ({
-            ...prev,
-            category:
-              createdCategory._id
-          }));
+          setFormData(
+            (previous) => ({
+              ...previous,
+              category:
+                createdCategory._id
+            })
+          );
+
         }
+
+
+        showToast(
+          "Category created successfully!",
+          "success"
+        );
 
 
         setCategoryName("");
@@ -770,21 +2649,31 @@ function Dashboard() {
         );
 
 
-        setCategoryError(
+        const message =
           error.response?.data?.message ||
-          "Failed to create category"
+          "Failed to create category";
+
+
+        setCategoryError(message);
+
+
+        showToast(
+          message,
+          "error"
         );
 
       } finally {
 
         setCategoryCreating(false);
+
       }
+
     };
 
 
-  // =========================
-  // Clear Filters
-  // =========================
+  // =======================================================
+  // CLEAR FILTERS
+  // =======================================================
 
   const clearFilters = () => {
 
@@ -795,23 +2684,35 @@ function Dashboard() {
     setSelectedCategory("all");
 
     setDueDateFilter("all");
+
   };
 
 
-  // =========================
-  // Active Filters
-  // =========================
+  // =======================================================
+  // ACTIVE FILTERS
+  // =======================================================
 
   const hasActiveFilters =
-    search.trim() !== "" ||
-    status !== "all" ||
-    selectedCategory !== "all" ||
-    dueDateFilter !== "all";
+    useMemo(() => {
+
+      return (
+        search.trim() !== "" ||
+        status !== "all" ||
+        selectedCategory !== "all" ||
+        dueDateFilter !== "all"
+      );
+
+    }, [
+      search,
+      status,
+      selectedCategory,
+      dueDateFilter
+    ]);
 
 
-  // =========================
-  // Logout
-  // =========================
+  // =======================================================
+  // LOGOUT
+  // =======================================================
 
   const handleLogout = () => {
 
@@ -822,101 +2723,179 @@ function Dashboard() {
     setUser(null);
 
     window.location.href = "/";
+
   };
 
 
-  // =========================
-  // Priority Class
-  // =========================
-
-  const getPriorityClass = (priority) => {
-
-    if (priority === "high") {
-
-      return "bg-red-100 text-red-700";
-    }
-
-
-    if (priority === "low") {
-
-      return "bg-green-100 text-green-700";
-    }
-
-
-    return "bg-yellow-100 text-yellow-700";
-  };
-
-
-  // =========================
-  // Format Date
-  // =========================
-
-  const formatDate = (dateValue) => {
-
-    if (!dateValue) {
-
-      return "No due date";
-    }
-
-
-    const date =
-      new Date(dateValue);
-
-
-    if (isNaN(date.getTime())) {
-
-      return "Invalid date";
-    }
-
-
-    return date.toLocaleDateString(
-      "en-IN",
-      {
-        day: "2-digit",
-        month: "short",
-        year: "numeric"
-      }
-    );
-  };
-
-
-  // =========================
-  // User Initial
-  // =========================
-
-  const getUserInitial = () => {
-
-    if (!user?.name) {
-      return "U";
-    }
-
-    return user.name
-      .charAt(0)
-      .toUpperCase();
-  };
-
-
-  // =========================
-  // Render
-  // =========================
+  // =======================================================
+  // RENDER
+  // =======================================================
 
   return (
 
     <div className="min-h-screen bg-gray-100">
 
 
-      {/* =========================
-          Header
-      ========================= */}
+      {/* ===================================================
+          TOAST
+      =================================================== */}
+
+      {toast.show && (
+
+        <div className="fixed top-5 right-5 z-[100] w-[calc(100%-2rem)] max-w-sm">
+
+          <div
+            className={`rounded-xl border shadow-lg px-4 py-4 flex items-start gap-3 ${toast.type === "error"
+                ? "bg-red-50 border-red-200"
+                : "bg-green-50 border-green-200"
+              }`}
+          >
+
+            <div
+              className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${toast.type === "error"
+                  ? "bg-red-100 text-red-600"
+                  : "bg-green-100 text-green-600"
+                }`}
+            >
+
+              {toast.type === "error"
+                ? "!"
+                : "✓"}
+
+            </div>
+
+
+            <div className="flex-1">
+
+              <p
+                className={`text-sm font-semibold ${toast.type === "error"
+                    ? "text-red-800"
+                    : "text-green-800"
+                  }`}
+              >
+                {toast.type === "error"
+                  ? "Error"
+                  : "Success"}
+              </p>
+
+
+              <p
+                className={`text-sm mt-1 ${toast.type === "error"
+                    ? "text-red-700"
+                    : "text-green-700"
+                  }`}
+              >
+                {toast.message}
+              </p>
+
+            </div>
+
+
+            <button
+              type="button"
+              onClick={() =>
+                setToast({
+                  show: false,
+                  type: "success",
+                  message: ""
+                })
+              }
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+
+          </div>
+
+        </div>
+
+      )}
+
+
+      {/* ===================================================
+          DELETE CONFIRMATION MODAL
+      =================================================== */}
+
+      {deleteTodoId && (
+
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+
+          {/* Backdrop */}
+
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={cancelDelete}
+          />
+
+
+          {/* Modal */}
+
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
+
+            <div className="p-6">
+
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl">
+                🗑️
+              </div>
+
+
+              <div className="mt-5 text-center">
+
+                <h3 className="text-xl font-bold text-gray-900">
+                  Delete Todo?
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-gray-500">
+                  Are you sure you want to delete this todo?
+                  This action cannot be undone.
+                </p>
+
+              </div>
+
+
+              <div className="mt-6 flex flex-col-reverse sm:flex-row gap-3">
+
+                <button
+                  type="button"
+                  onClick={cancelDelete}
+                  disabled={deleteLoading}
+                  className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  disabled={deleteLoading}
+                  className="flex-1 rounded-lg bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deleteLoading
+                    ? "Deleting..."
+                    : "Yes, Delete"}
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+
+      {/* ===================================================
+          HEADER
+      =================================================== */}
 
       <header className="bg-white border-b">
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           <div className="h-20 flex items-center justify-between">
-
-
-            {/* Logo */}
 
             <div>
 
@@ -931,26 +2910,16 @@ function Dashboard() {
             </div>
 
 
-            {/* User + Logout */}
-
-            <div className="flex items-center gap-4">
-
-
-              {/* User Information */}
+            <div className="flex items-center gap-3">
 
               {user && (
 
                 <div className="hidden sm:flex items-center gap-3">
 
-
-                  {/* Avatar */}
-
                   <div className="h-10 w-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">
-                    {getUserInitial()}
+                    {getUserInitial(user)}
                   </div>
 
-
-                  {/* Name / Email */}
 
                   <div className="text-right">
 
@@ -969,18 +2938,27 @@ function Dashboard() {
               )}
 
 
-              {/* Mobile Avatar */}
-
               {user && (
 
                 <div className="sm:hidden h-10 w-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">
-                  {getUserInitial()}
+                  {getUserInitial(user)}
                 </div>
 
               )}
 
 
-              {/* Logout */}
+              <button
+                type="button"
+                onClick={refreshAll}
+                disabled={refreshing}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                title="Refresh dashboard"
+              >
+                {refreshing
+                  ? "↻"
+                  : "↻ Refresh"}
+              </button>
+
 
               <button
                 type="button"
@@ -999,16 +2977,13 @@ function Dashboard() {
       </header>
 
 
-      {/* =========================
-          Main
-      ========================= */}
+      {/* ===================================================
+          MAIN
+      =================================================== */}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-
-        {/* =========================
-            Welcome
-        ========================= */}
+        {/* Welcome */}
 
         <div className="mb-6">
 
@@ -1020,7 +2995,7 @@ function Dashboard() {
               {user?.name || "User"}
             </span>
 
-            👋
+            {" "}👋
 
           </h2>
 
@@ -1031,9 +3006,48 @@ function Dashboard() {
         </div>
 
 
-        {/* =========================
-            Page Header
-        ========================= */}
+        {/* Statistics */}
+
+        <StatisticsPanel
+
+          statistics={statistics}
+
+          statisticsLoading={
+            statisticsLoading
+          }
+
+          statisticsError={
+            statisticsError
+          }
+
+          showStatistics={
+            showStatistics
+          }
+
+          setShowStatistics={
+            setShowStatistics
+          }
+
+          dueDateFilter={
+            dueDateFilter
+          }
+
+          setDueDateFilter={
+            setDueDateFilter
+          }
+
+          selectedCategory={
+            selectedCategory
+          }
+
+          setSelectedCategory={
+            setSelectedCategory
+          }
+
+        />
+
+
+        {/* Page Header */}
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
 
@@ -1061,582 +3075,137 @@ function Dashboard() {
         </div>
 
 
-        {/* =========================
-            Todo Form
-        ========================= */}
+        {/* Todo Form */}
 
-        {showForm && (
+        <TodoForm
 
-          <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+          showForm={showForm}
 
+          editingTodoId={
+            editingTodoId
+          }
 
-            <div className="flex items-center justify-between mb-6">
+          formData={formData}
 
-              <div>
+          formLoading={
+            formLoading
+          }
 
-                <h3 className="text-xl font-bold text-gray-900">
+          formError={
+            formError
+          }
 
-                  {editingTodoId
-                    ? "Edit Todo"
-                    : "Create Todo"}
+          categories={
+            categories
+          }
 
-                </h3>
+          categoryLoading={
+            categoryLoading
+          }
 
-                <p className="text-sm text-gray-500 mt-1">
+          showCategoryForm={
+            showCategoryForm
+          }
 
-                  {editingTodoId
-                    ? "Update your task"
-                    : "Add a new task to your list"}
+          categoryName={
+            categoryName
+          }
 
-                </p>
+          categoryColor={
+            categoryColor
+          }
 
-              </div>
+          categoryError={
+            categoryError
+          }
 
+          categoryCreating={
+            categoryCreating
+          }
 
-              <button
-                type="button"
-                onClick={closeForm}
-                className="text-gray-400 hover:text-gray-600 text-xl"
-              >
-                ✕
-              </button>
+          setFormData={
+            setFormData
+          }
 
-            </div>
+          setShowCategoryForm={
+            setShowCategoryForm
+          }
 
+          setCategoryName={
+            setCategoryName
+          }
 
-            {formError && (
+          setCategoryColor={
+            setCategoryColor
+          }
 
-              <div className="mb-5 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-                {formError}
-              </div>
+          setCategoryError={
+            setCategoryError
+          }
 
-            )}
+          handleSubmit={
+            handleSubmit
+          }
 
+          handleCreateCategory={
+            handleCreateCategory
+          }
 
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-5"
-            >
+          closeForm={
+            closeForm
+          }
 
+        />
 
-              {/* Title */}
 
-              <div>
+        {/* Filters */}
 
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Title
-                </label>
+        <TodoFilters
 
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  placeholder="Enter todo title"
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                />
+          search={search}
 
-              </div>
+          setSearch={setSearch}
 
+          status={status}
 
-              {/* Description */}
+          setStatus={setStatus}
 
-              <div>
+          selectedCategory={
+            selectedCategory
+          }
 
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
+          setSelectedCategory={
+            setSelectedCategory
+          }
 
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Enter description"
-                  rows="4"
-                  className="w-full resize-none rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                />
+          dueDateFilter={
+            dueDateFilter
+          }
 
-              </div>
+          setDueDateFilter={
+            setDueDateFilter
+          }
 
+          categories={
+            categories
+          }
 
-              {/* Due Date */}
+          categoryLoading={
+            categoryLoading
+          }
 
-              <div>
+          hasActiveFilters={
+            hasActiveFilters
+          }
 
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Due Date
-                </label>
+          clearFilters={
+            clearFilters
+          }
 
-                <input
-                  type="date"
-                  name="dueDate"
-                  value={formData.dueDate}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                />
+        />
 
-                <p className="mt-1 text-xs text-gray-500">
-                  Tasks past their due date will automatically be marked overdue.
-                </p>
 
-              </div>
-
-
-              {/* Priority */}
-
-              <div>
-
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Priority
-                </label>
-
-                <select
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                >
-
-                  <option value="high">
-                    High
-                  </option>
-
-                  <option value="medium">
-                    Medium
-                  </option>
-
-                  <option value="low">
-                    Low
-                  </option>
-
-                </select>
-
-              </div>
-
-
-              {/* Category */}
-
-              <div>
-
-                <div className="flex items-center justify-between mb-2">
-
-                  <label className="block text-sm font-medium text-gray-700">
-                    Category
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-
-                      setShowCategoryForm(
-                        (prev) => !prev
-                      );
-
-                      setCategoryError("");
-
-                    }}
-                    className="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-                  >
-                    + Custom Category
-                  </button>
-
-                </div>
-
-
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  disabled={categoryLoading}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
-                >
-
-                  <option value="">
-
-                    {categoryLoading
-                      ? "Loading categories..."
-                      : "No category"}
-
-                  </option>
-
-
-                  {!categoryLoading &&
-                    categories.map(
-                      (category) => (
-
-                        <option
-                          key={category._id}
-                          value={category._id}
-                        >
-                          {category.name}
-                        </option>
-
-                      )
-                    )}
-
-                </select>
-
-
-                {/* Custom Category */}
-
-                {showCategoryForm && (
-
-                  <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-
-                    <h4 className="font-semibold text-gray-900 mb-4">
-                      Create Custom Category
-                    </h4>
-
-
-                    {categoryError && (
-
-                      <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
-                        {categoryError}
-                      </div>
-
-                    )}
-
-
-                    <div className="space-y-4">
-
-
-                      {/* Category Name */}
-
-                      <div>
-
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Category Name
-                        </label>
-
-                        <input
-                          type="text"
-                          value={categoryName}
-                          onChange={(e) =>
-                            setCategoryName(
-                              e.target.value
-                            )
-                          }
-                          placeholder="e.g. Fitness"
-                          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-                        />
-
-                      </div>
-
-
-                      {/* Category Color */}
-
-                      <div>
-
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Category Color
-                        </label>
-
-                        <div className="flex items-center gap-3">
-
-                          <input
-                            type="color"
-                            value={categoryColor}
-                            onChange={(e) =>
-                              setCategoryColor(
-                                e.target.value
-                              )
-                            }
-                            className="h-10 w-16 cursor-pointer rounded border border-gray-300"
-                          />
-
-                          <span className="text-sm text-gray-600">
-                            {categoryColor}
-                          </span>
-
-                        </div>
-
-                      </div>
-
-
-                      {/* Buttons */}
-
-                      <div className="flex gap-3">
-
-                        <button
-                          type="button"
-                          onClick={
-                            handleCreateCategory
-                          }
-                          disabled={
-                            categoryCreating
-                          }
-                          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-
-                          {categoryCreating
-                            ? "Creating..."
-                            : "Create Category"}
-
-                        </button>
-
-
-                        <button
-                          type="button"
-                          onClick={() => {
-
-                            setShowCategoryForm(false);
-
-                            setCategoryError("");
-
-                            setCategoryName("");
-
-                          }}
-                          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                )}
-
-              </div>
-
-
-              {/* Form Buttons */}
-
-              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
-
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  disabled={formLoading}
-                  className="rounded-lg border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-
-
-                <button
-                  type="submit"
-                  disabled={formLoading}
-                  className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-
-                  {formLoading
-                    ? editingTodoId
-                      ? "Updating..."
-                      : "Creating..."
-                    : editingTodoId
-                    ? "Update Todo"
-                    : "Create Todo"}
-
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        )}
-
-
-        {/* =========================
-            Filters
-        ========================= */}
-
-        <div className="bg-white rounded-xl shadow-sm border p-4 mb-6">
-
-
-          {/* Search */}
-
-          <div className="mb-4">
-
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Search
-            </label>
-
-            <input
-              type="text"
-              value={search}
-              onChange={(e) =>
-                setSearch(e.target.value)
-              }
-              placeholder="Search todos by title or description..."
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-            />
-
-          </div>
-
-
-          {/* Filter Row */}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-
-
-            {/* Status */}
-
-            <div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
-
-              <select
-                value={status}
-                onChange={(e) =>
-                  setStatus(e.target.value)
-                }
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-              >
-
-                <option value="all">
-                  All
-                </option>
-
-                <option value="active">
-                  Active
-                </option>
-
-                <option value="completed">
-                  Completed
-                </option>
-
-                <option value="overdue">
-                  Overdue
-                </option>
-
-              </select>
-
-            </div>
-
-
-            {/* Category */}
-
-            <div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-
-              <select
-                value={selectedCategory}
-                onChange={(e) =>
-                  setSelectedCategory(
-                    e.target.value
-                  )
-                }
-                disabled={categoryLoading}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100"
-              >
-
-                <option value="all">
-                  All Categories
-                </option>
-
-
-                {!categoryLoading &&
-                  categories.map(
-                    (category) => (
-
-                      <option
-                        key={category._id}
-                        value={category._id}
-                      >
-                        {category.name}
-                      </option>
-
-                    )
-                  )}
-
-              </select>
-
-            </div>
-
-
-            {/* Due Date */}
-
-            <div>
-
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Due Date
-              </label>
-
-              <select
-                value={dueDateFilter}
-                onChange={(e) =>
-                  setDueDateFilter(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
-              >
-
-                <option value="all">
-                  All Due Dates
-                </option>
-
-                <option value="today">
-                  Today
-                </option>
-
-                <option value="tomorrow">
-                  Tomorrow
-                </option>
-
-                <option value="upcoming">
-                  Upcoming
-                </option>
-
-                <option value="overdue">
-                  Overdue
-                </option>
-
-                <option value="none">
-                  No Due Date
-                </option>
-
-              </select>
-
-            </div>
-
-          </div>
-
-
-          {/* Clear Filters */}
-
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-
-            <div className="text-sm text-gray-500">
-
-              {hasActiveFilters
-                ? "Filters are active"
-                : "Showing all todos"}
-
-            </div>
-
-
-            {hasActiveFilters && (
-
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Clear Filters
-              </button>
-
-            )}
-
-          </div>
-
-        </div>
-
-
-        {/* =========================
-            Error
-        ========================= */}
+        {/* Todo Error */}
 
         {todoError && (
 
@@ -1647,9 +3216,7 @@ function Dashboard() {
         )}
 
 
-        {/* =========================
-            Loading
-        ========================= */}
+        {/* Todo Loading */}
 
         {todoLoading && (
 
@@ -1666,9 +3233,7 @@ function Dashboard() {
         )}
 
 
-        {/* =========================
-            Empty
-        ========================= */}
+        {/* Empty */}
 
         {!todoLoading &&
           todos.length === 0 && (
@@ -1709,219 +3274,32 @@ function Dashboard() {
           )}
 
 
-        {/* =========================
-            Todo List
-        ========================= */}
+        {/* Todo List */}
 
         {!todoLoading &&
           todos.length > 0 && (
 
             <div className="space-y-4">
 
-              {todos.map((todo) => (
-
-                <div
-                  key={todo._id}
-                  className={`bg-white rounded-xl shadow-sm border p-5 transition ${
-                    todo.completed
-                      ? "opacity-75"
-                      : ""
-                  } ${
-                    todo.overdue
-                      ? "border-red-300"
-                      : "border-gray-200"
-                  }`}
-                >
-
-
-                  <div className="flex items-start gap-4">
-
-
-                    {/* Complete */}
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleToggle(
-                          todo._id
-                        )
-                      }
-                      className={`mt-1 h-6 w-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition ${
-                        todo.completed
-                          ? "bg-green-500 border-green-500 text-white"
-                          : "border-gray-300 hover:border-indigo-500"
-                      }`}
-                      title={
-                        todo.completed
-                          ? "Mark incomplete"
-                          : "Mark complete"
-                      }
-                    >
-
-                      {todo.completed && (
-
-                        <span className="text-sm">
-                          ✓
-                        </span>
-
-                      )}
-
-                    </button>
-
-
-                    {/* Content */}
-
-                    <div className="flex-1 min-w-0">
-
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-
-
-                        <div>
-
-                          <h3
-                            className={`text-lg font-semibold break-words ${
-                              todo.completed
-                                ? "line-through text-gray-400"
-                                : "text-gray-900"
-                            }`}
-                          >
-                            {todo.title}
-                          </h3>
-
-
-                          {todo.description && (
-
-                            <p className="mt-1 text-sm text-gray-500 break-words">
-                              {todo.description}
-                            </p>
-
-                          )}
-
-                        </div>
-
-
-                        {/* Actions */}
-
-                        <div className="flex items-center gap-2 flex-shrink-0">
-
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleEdit(todo)
-                            }
-                            className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100"
-                          >
-                            ✏ Edit
-                          </button>
-
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleDelete(
-                                todo._id
-                              )
-                            }
-                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-100"
-                          >
-                            🗑 Delete
-                          </button>
-
-                        </div>
-
-                      </div>
-
-
-                      {/* Metadata */}
-
-                      <div className="flex flex-wrap items-center gap-2 mt-4">
-
-
-                        {/* Priority */}
-
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getPriorityClass(
-                            todo.priority
-                          )}`}
-                        >
-                          {todo.priority} priority
-                        </span>
-
-
-                        {/* Category */}
-
-                        {todo.category && (
-
-                          <span
-                            className="rounded-full px-3 py-1 text-xs font-semibold text-white"
-                            style={{
-                              backgroundColor:
-                                todo.category.color ||
-                                "#6366f1"
-                            }}
-                          >
-                            {todo.category.name}
-                          </span>
-
-                        )}
-
-
-                        {/* Due Date */}
-
-                        {todo.dueDate && (
-
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                              todo.overdue
-                                ? "bg-red-100 text-red-700"
-                                : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-
-                            {todo.overdue
-                              ? "⚠ Overdue · "
-                              : "Due · "}
-
-                            {formatDate(
-                              todo.dueDate
-                            )}
-
-                          </span>
-
-                        )}
-
-
-                        {/* No Due Date */}
-
-                        {!todo.dueDate && (
-
-                          <span className="rounded-full bg-gray-100 text-gray-500 px-3 py-1 text-xs font-semibold">
-                            No due date
-                          </span>
-
-                        )}
-
-
-                        {/* Completed */}
-
-                        {todo.completed && (
-
-                          <span className="rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">
-                            ✓ Completed
-                          </span>
-
-                        )}
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              ))}
+              {todos.map(
+                (todo) => (
+
+                  <TodoCard
+                    key={todo._id}
+                    todo={todo}
+                    handleToggle={
+                      handleToggle
+                    }
+                    handleEdit={
+                      handleEdit
+                    }
+                    handleDelete={
+                      handleDelete
+                    }
+                  />
+
+                )
+              )}
 
             </div>
 

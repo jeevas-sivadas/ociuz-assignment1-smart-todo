@@ -8,6 +8,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const todoRoutes = require("./routes/todoRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
+const statisticsRoutes = require("./routes/statisticsRoutes");
 
 const app = express();
 
@@ -57,6 +58,13 @@ app.use(
 app.use(
   "/api/categories",
   categoryRoutes
+);
+
+
+// Statistics
+app.use(
+  "/api/statistics",
+  statisticsRoutes
 );
 
 
