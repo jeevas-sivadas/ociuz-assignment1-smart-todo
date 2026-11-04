@@ -22,6 +22,16 @@ import {
   getStatistics
 } from "../services/statisticsService";
 
+import {
+  formatDateForInput,
+  formatDate
+} from "../utils/dateUtils";
+
+import {
+  getPriorityClass,
+  getUserInitial
+} from "../utils/todoUtils";
+
 
 // =========================================================
 // CONSTANTS
@@ -63,79 +73,6 @@ const EMPTY_STATISTICS = {
 const getToken = () => {
   return localStorage.getItem("token");
 };
-
-
-const formatDateForInput = (dateValue) => {
-  if (!dateValue) {
-    return "";
-  }
-
-  const date = new Date(dateValue);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const year = date.getFullYear();
-
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    date.getDate()
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-
-const formatDate = (dateValue) => {
-  if (!dateValue) {
-    return "No due date";
-  }
-
-  const date = new Date(dateValue);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Invalid date";
-  }
-
-  return date.toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
-    }
-  );
-};
-
-
-const getPriorityClass = (priority) => {
-  switch (priority) {
-    case "high":
-      return "bg-red-100 text-red-700";
-
-    case "low":
-      return "bg-green-100 text-green-700";
-
-    default:
-      return "bg-yellow-100 text-yellow-700";
-  }
-};
-
-
-const getUserInitial = (user) => {
-  if (!user?.name) {
-    return "U";
-  }
-
-  return user.name
-    .charAt(0)
-    .toUpperCase();
-};
-
 
 // =========================================================
 // STATISTICS PANEL
@@ -374,8 +311,8 @@ function StatisticsPanel({
                       )
                     }
                     className={`rounded-xl border p-4 text-left transition ${dueDateFilter === "today"
-                        ? "border-indigo-500 bg-indigo-50"
-                        : "hover:bg-indigo-50"
+                      ? "border-indigo-500 bg-indigo-50"
+                      : "hover:bg-indigo-50"
                       }`}
                   >
 
@@ -400,8 +337,8 @@ function StatisticsPanel({
                       )
                     }
                     className={`rounded-xl border p-4 text-left transition ${dueDateFilter === "tomorrow"
-                        ? "border-blue-500 bg-blue-50"
-                        : "hover:bg-indigo-50"
+                      ? "border-blue-500 bg-blue-50"
+                      : "hover:bg-indigo-50"
                       }`}
                   >
 
@@ -426,8 +363,8 @@ function StatisticsPanel({
                       )
                     }
                     className={`rounded-xl border p-4 text-left transition ${dueDateFilter === "upcoming"
-                        ? "border-purple-500 bg-purple-50"
-                        : "hover:bg-purple-50"
+                      ? "border-purple-500 bg-purple-50"
+                      : "hover:bg-purple-50"
                       }`}
                   >
 
@@ -452,8 +389,8 @@ function StatisticsPanel({
                       )
                     }
                     className={`rounded-xl border p-4 text-left transition ${dueDateFilter === "none"
-                        ? "border-gray-500 bg-gray-100"
-                        : "hover:bg-gray-50"
+                      ? "border-gray-500 bg-gray-100"
+                      : "hover:bg-gray-50"
                       }`}
                   >
 
@@ -629,8 +566,8 @@ function StatisticsPanel({
                               )
                             }
                             className={`rounded-xl border p-4 text-left transition ${isSelected
-                                ? "border-indigo-500 bg-indigo-50"
-                                : "hover:bg-gray-50"
+                              ? "border-indigo-500 bg-indigo-50"
+                              : "hover:bg-gray-50"
                               }`}
                           >
 
@@ -1383,8 +1320,8 @@ function TodoCard({
 
     <div
       className={`bg-white rounded-xl shadow-sm border p-5 transition ${todo.completed
-          ? "opacity-75"
-          : ""
+        ? "opacity-75"
+        : ""
         } ${todo.overdue
           ? "border-red-300"
           : "border-gray-200"
@@ -1399,8 +1336,8 @@ function TodoCard({
             handleToggle(todo._id)
           }
           className={`mt-1 h-6 w-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition ${todo.completed
-              ? "bg-green-500 border-green-500 text-white"
-              : "border-gray-300 hover:border-indigo-500"
+            ? "bg-green-500 border-green-500 text-white"
+            : "border-gray-300 hover:border-indigo-500"
             }`}
           title={
             todo.completed
@@ -1426,8 +1363,8 @@ function TodoCard({
 
               <h3
                 className={`text-lg font-semibold break-words ${todo.completed
-                    ? "line-through text-gray-400"
-                    : "text-gray-900"
+                  ? "line-through text-gray-400"
+                  : "text-gray-900"
                   }`}
               >
                 {todo.title}
@@ -1504,8 +1441,8 @@ function TodoCard({
 
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${todo.overdue
-                    ? "bg-red-100 text-red-700"
-                    : "bg-gray-100 text-gray-600"
+                  ? "bg-red-100 text-red-700"
+                  : "bg-gray-100 text-gray-600"
                   }`}
               >
 
@@ -2746,15 +2683,15 @@ function Dashboard() {
 
           <div
             className={`rounded-xl border shadow-lg px-4 py-4 flex items-start gap-3 ${toast.type === "error"
-                ? "bg-red-50 border-red-200"
-                : "bg-green-50 border-green-200"
+              ? "bg-red-50 border-red-200"
+              : "bg-green-50 border-green-200"
               }`}
           >
 
             <div
               className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${toast.type === "error"
-                  ? "bg-red-100 text-red-600"
-                  : "bg-green-100 text-green-600"
+                ? "bg-red-100 text-red-600"
+                : "bg-green-100 text-green-600"
                 }`}
             >
 
@@ -2769,8 +2706,8 @@ function Dashboard() {
 
               <p
                 className={`text-sm font-semibold ${toast.type === "error"
-                    ? "text-red-800"
-                    : "text-green-800"
+                  ? "text-red-800"
+                  : "text-green-800"
                   }`}
               >
                 {toast.type === "error"
@@ -2781,8 +2718,8 @@ function Dashboard() {
 
               <p
                 className={`text-sm mt-1 ${toast.type === "error"
-                    ? "text-red-700"
-                    : "text-green-700"
+                  ? "text-red-700"
+                  : "text-green-700"
                   }`}
               >
                 {toast.message}
