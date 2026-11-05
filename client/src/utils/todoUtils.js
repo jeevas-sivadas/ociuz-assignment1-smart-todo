@@ -12,9 +12,9 @@ export const getPriorityClass = (priority) => {
 };
 
 export const getUserInitial = (name) => {
-  if (!name) {
-    return "U";
-  }
+    if (typeof name !== "string" || !name.trim()) {
+        return "U";
+    }
 
-  return name.charAt(0).toUpperCase();
+    return name.trim().charAt(0).toUpperCase();
 };
