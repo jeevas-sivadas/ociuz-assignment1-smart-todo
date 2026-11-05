@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useState
 } from "react";
 
@@ -15,7 +14,9 @@ import {
 
 import {
   getCategories,
-  createCategory
+  createCategory,
+  updateCategory,
+  deleteCategory
 } from "../services/categoryService";
 
 import {
@@ -23,22 +24,17 @@ import {
 } from "../services/statisticsService";
 
 import {
-  formatDateForInput,
+  formatDateForInput
 } from "../utils/dateUtils";
-
 
 import StatisticsPanel from "../components/dashboard/StatisticsPanel";
 import TodoForm from "../components/dashboard/TodoForm";
 import TodoFilters from "../components/dashboard/TodoFilters";
-import TodoCard from "../components/dashboard/TodoCard";
 import Toast from "../components/dashboard/Toast";
 import DeleteConfirmation from "../components/dashboard/DeleteConfirmation";
 import DashboardHeader from "../components/dashboard/DashboardHeader";
 import DashboardPageHeader from "../components/dashboard/DashboardPageHeader";
-
-// =========================================================
-// CONSTANTS
-// =========================================================
+import TodoListSection from "../components/dashboard/TodoListSection";
 
 const EMPTY_FORM = {
   title: "",
@@ -58,147 +54,52 @@ const EMPTY_STATISTICS = {
   upcoming: 0,
   noDueDate: 0,
   completionPercentage: 0,
-
   priority: {
     high: 0,
     medium: 0,
     low: 0
   },
-
   categories: []
 };
 
-// =========================================================
-// HELPER FUNCTIONS
-// =========================================================
-
-const getToken = () => {
-  return localStorage.getItem("token");
-};
-
-// =========================================================
-// MAIN DASHBOARD
-// =========================================================
+const getToken = () => localStorage.getItem("token");
 
 function Dashboard() {
 
-  // =======================================================
-  // USER
-  // =======================================================
+  const [user, setUser] = useState(null);
 
-  const [user, setUser] =
-    useState(null);
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [showForm, setShowForm] = useState(false);
+  const [editingTodoId, setEditingTodoId] = useState(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState("");
 
+  const [todos, setTodos] = useState([]);
+  const [todoLoading, setTodoLoading] = useState(true);
+  const [todoError, setTodoError] = useState("");
 
-  // =======================================================
-  // FORM
-  // =======================================================
+  const [categories, setCategories] = useState([]);
+  const [categoryLoading, setCategoryLoading] = useState(true);
 
-  const [formData, setFormData] =
-    useState(EMPTY_FORM);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryColor, setCategoryColor] = useState("#6366f1");
+  const [categoryError, setCategoryError] = useState("");
+  const [categoryCreating, setCategoryCreating] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [categoryDeleting, setCategoryDeleting] = useState(false);
 
-  const [showForm, setShowForm] =
-    useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [dueDateFilter, setDueDateFilter] = useState("all");
 
-  const [editingTodoId, setEditingTodoId] =
-    useState(null);
+  const [statistics, setStatistics] = useState(EMPTY_STATISTICS);
+  const [statisticsLoading, setStatisticsLoading] = useState(true);
+  const [statisticsError, setStatisticsError] = useState("");
+  const [showStatistics, setShowStatistics] = useState(true);
 
-  const [formLoading, setFormLoading] =
-    useState(false);
-
-  const [formError, setFormError] =
-    useState("");
-
-
-  // =======================================================
-  // TODOS
-  // =======================================================
-
-  const [todos, setTodos] =
-    useState([]);
-
-  const [todoLoading, setTodoLoading] =
-    useState(true);
-
-  const [todoError, setTodoError] =
-    useState("");
-
-
-  // =======================================================
-  // CATEGORIES
-  // =======================================================
-
-  const [categories, setCategories] =
-    useState([]);
-
-  const [categoryLoading, setCategoryLoading] =
-    useState(true);
-
-
-  // =======================================================
-  // CUSTOM CATEGORY
-  // =======================================================
-
-  const [showCategoryForm, setShowCategoryForm] =
-    useState(false);
-
-  const [categoryName, setCategoryName] =
-    useState("");
-
-  const [categoryColor, setCategoryColor] =
-    useState("#6366f1");
-
-  const [categoryError, setCategoryError] =
-    useState("");
-
-  const [categoryCreating, setCategoryCreating] =
-    useState(false);
-
-
-  // =======================================================
-  // FILTERS
-  // =======================================================
-
-  const [search, setSearch] =
-    useState("");
-
-  const [status, setStatus] =
-    useState("all");
-
-  const [selectedCategory, setSelectedCategory] =
-    useState("all");
-
-  const [dueDateFilter, setDueDateFilter] =
-    useState("all");
-
-
-  // =======================================================
-  // STATISTICS
-  // =======================================================
-
-  const [statistics, setStatistics] =
-    useState(EMPTY_STATISTICS);
-
-  const [statisticsLoading, setStatisticsLoading] =
-    useState(true);
-
-  const [statisticsError, setStatisticsError] =
-    useState("");
-
-  const [showStatistics, setShowStatistics] =
-    useState(true);
-
-
-  // =======================================================
-  // REFRESH
-  // =======================================================
-
-  const [refreshing, setRefreshing] =
-    useState(false);
-
-  // =======================================================
-  // TOAST
-  // =======================================================
+  const [refreshing, setRefreshing] = useState(false);
 
   const [toast, setToast] = useState({
     show: false,
@@ -206,464 +107,263 @@ function Dashboard() {
     message: ""
   });
 
+  const [deleteTodoId, setDeleteTodoId] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // =======================================================
-  // DELETE CONFIRMATION
-  // =======================================================
+  const hasActiveFilters =
+    search.trim() !== "" ||
+    status !== "all" ||
+    selectedCategory !== "all" ||
+    dueDateFilter !== "all";
 
-  const [deleteTodoId, setDeleteTodoId] =
-    useState(null);
+  const showToast = useCallback((message, type = "success") => {
 
-  const [deleteLoading, setDeleteLoading] =
-    useState(false);
+    setToast({
+      show: true,
+      type,
+      message
+    });
 
+    setTimeout(() => {
+      setToast({
+        show: false,
+        type: "success",
+        message: ""
+      });
+    }, 3000);
 
-  // =======================================================
-  // SHOW TOAST
-  // =======================================================
+  }, []);
 
-  const showToast =
-    useCallback(
-      (message, type = "success") => {
+  const resetForm = () => {
 
-        setToast({
-          show: true,
-          type,
-          message
-        });
+    setFormData({ ...EMPTY_FORM });
+    setEditingTodoId(null);
+    setFormError("");
+    setShowCategoryForm(false);
+    setCategoryName("");
+    setCategoryColor("#6366f1");
+    setCategoryError("");
 
-
-        setTimeout(() => {
-
-          setToast({
-            show: false,
-            type: "success",
-            message: ""
-          });
-
-        }, 3000);
-
-      },
-      []
-    );
-
-
-  // =======================================================
-  // LOAD USER
-  // =======================================================
+  };
 
   useEffect(() => {
 
     const token = getToken();
-
-    const storedUser =
-      localStorage.getItem("user");
-
+    const storedUser = localStorage.getItem("user");
 
     if (!token) {
-
       window.location.href = "/";
-
       return;
     }
 
-
     if (storedUser) {
-
       try {
-
-        const parsedUser =
-          JSON.parse(storedUser);
-
-        setUser(parsedUser);
-
+        setUser(JSON.parse(storedUser));
       } catch (error) {
-
-        console.error(
-          "Failed to parse stored user:",
-          error
-        );
-
+        console.error("Failed to parse stored user:", error);
         localStorage.removeItem("user");
-
       }
+    }
+
+  }, []);
+
+  const loadCategories = useCallback(async () => {
+
+    try {
+
+      setCategoryLoading(true);
+
+      const token = getToken();
+
+      if (!token) return;
+
+      const data = await getCategories(token);
+
+      setCategories(Array.isArray(data) ? data : []);
+
+    } catch (error) {
+
+      console.error(
+        "Failed to load categories:",
+        error.response?.data || error.message
+      );
+
+      setCategories([]);
+
+    } finally {
+
+      setCategoryLoading(false);
 
     }
 
   }, []);
 
+  const loadTodos = useCallback(async () => {
 
-  // =======================================================
-  // LOAD CATEGORIES
-  // =======================================================
+    try {
 
-  const loadCategories =
-    useCallback(async () => {
+      setTodoLoading(true);
+      setTodoError("");
 
-      try {
+      const token = getToken();
 
-        setCategoryLoading(true);
-
-        const token =
-          getToken();
-
-
-        if (!token) {
-          return;
-        }
-
-
-        const data =
-          await getCategories(token);
-
-
-        setCategories(
-          Array.isArray(data)
-            ? data
-            : []
-        );
-
-      } catch (error) {
-
-        console.error(
-          "Failed to load categories:",
-          error.response?.data ||
-          error.message
-        );
-
-        setCategories([]);
-
-      } finally {
-
-        setCategoryLoading(false);
-
-      }
-
-    }, []);
-
-
-  // =======================================================
-  // LOAD TODOS
-  // =======================================================
-
-  const loadTodos =
-    useCallback(async () => {
-
-      try {
-
-        setTodoLoading(true);
-        setTodoError("");
-
-
-        const token =
-          getToken();
-
-
-        if (!token) {
-
-          setTodoError(
-            "You are not logged in."
-          );
-
-          setTodos([]);
-
-          return;
-        }
-
-
-        const params = {
-
-          search:
-            search.trim(),
-
-          status,
-
-          category:
-            selectedCategory,
-
-          dueDate:
-            dueDateFilter
-
-        };
-
-
-        const data =
-          await getTodos(
-            params,
-            token
-          );
-
-
-        setTodos(
-          Array.isArray(data)
-            ? data
-            : []
-        );
-
-      } catch (error) {
-
-        console.error(
-          "Failed to load todos:",
-          error.response?.data ||
-          error.message
-        );
-
-
-        const message =
-          error.response?.data?.message ||
-          "Failed to load todos";
-
-
-        setTodoError(message);
-
-
-        showToast(
-          message,
-          "error"
-        );
-
-
+      if (!token) {
+        setTodoError("You are not logged in.");
         setTodos([]);
-
-      } finally {
-
-        setTodoLoading(false);
-
+        return;
       }
 
-    }, [
-      search,
-      status,
-      selectedCategory,
-      dueDateFilter,
-      showToast
-    ]);
+      const params = {
+        search: search.trim(),
+        status,
+        category: selectedCategory,
+        dueDate: dueDateFilter
+      };
 
+      const data = await getTodos(params, token);
 
-  // =======================================================
-  // LOAD STATISTICS
-  // =======================================================
+      setTodos(Array.isArray(data) ? data : []);
 
-  const loadStatistics =
-    useCallback(async () => {
+    } catch (error) {
 
-      try {
+      console.error(
+        "Failed to load todos:",
+        error.response?.data || error.message
+      );
 
-        setStatisticsLoading(true);
-        setStatisticsError("");
+      const message =
+        error.response?.data?.message || "Failed to load todos";
 
+      setTodoError(message);
+      showToast(message, "error");
+      setTodos([]);
 
-        const token =
-          getToken();
+    } finally {
 
+      setTodoLoading(false);
 
-        if (!token) {
+    }
 
-          setStatisticsError(
-            "You are not logged in."
-          );
+  }, [
+    search,
+    status,
+    selectedCategory,
+    dueDateFilter,
+    showToast
+  ]);
 
-          return;
-        }
+  const loadStatistics = useCallback(async () => {
 
+    try {
 
-        const data =
-          await getStatistics(token);
+      setStatisticsLoading(true);
+      setStatisticsError("");
 
+      const token = getToken();
 
-        setStatistics({
-
-          total:
-            data?.total || 0,
-
-          active:
-            data?.active || 0,
-
-          completed:
-            data?.completed || 0,
-
-          overdue:
-            data?.overdue || 0,
-
-          dueToday:
-            data?.dueToday || 0,
-
-          dueTomorrow:
-            data?.dueTomorrow || 0,
-
-          upcoming:
-            data?.upcoming || 0,
-
-          noDueDate:
-            data?.noDueDate || 0,
-
-          completionPercentage:
-            data?.completionPercentage || 0,
-
-          priority: {
-
-            high:
-              data?.priority?.high || 0,
-
-            medium:
-              data?.priority?.medium || 0,
-
-            low:
-              data?.priority?.low || 0
-
-          },
-
-          categories:
-            Array.isArray(
-              data?.categories
-            )
-              ? data.categories
-              : []
-
-        });
-
-      } catch (error) {
-
-        console.error(
-          "Failed to load statistics:",
-          error.response?.data ||
-          error.message
-        );
-
-
-        const message =
-          error.response?.data?.message ||
-          "Failed to load statistics";
-
-
-        setStatisticsError(message);
-
-
-        showToast(
-          message,
-          "error"
-        );
-
-      } finally {
-
-        setStatisticsLoading(false);
-
+      if (!token) {
+        setStatisticsError("You are not logged in.");
+        return;
       }
 
-    }, [
-      showToast
-    ]);
+      const data = await getStatistics(token);
 
+      setStatistics({
+        total: data?.total || 0,
+        active: data?.active || 0,
+        completed: data?.completed || 0,
+        overdue: data?.overdue || 0,
+        dueToday: data?.dueToday || 0,
+        dueTomorrow: data?.dueTomorrow || 0,
+        upcoming: data?.upcoming || 0,
+        noDueDate: data?.noDueDate || 0,
+        completionPercentage: data?.completionPercentage || 0,
 
-  // =======================================================
-  // INITIAL LOAD
-  // =======================================================
+        priority: {
+          high: data?.priority?.high || 0,
+          medium: data?.priority?.medium || 0,
+          low: data?.priority?.low || 0
+        },
+
+        categories: Array.isArray(data?.categories)
+          ? data.categories
+          : []
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Failed to load statistics:",
+        error.response?.data || error.message
+      );
+
+      const message =
+        error.response?.data?.message || "Failed to load statistics";
+
+      setStatisticsError(message);
+      showToast(message, "error");
+
+    } finally {
+
+      setStatisticsLoading(false);
+
+    }
+
+  }, [showToast]);
 
   useEffect(() => {
 
     loadCategories();
     loadStatistics();
 
-  }, [
-    loadCategories,
-    loadStatistics
-  ]);
-
-
-  // =======================================================
-  // FILTER-BASED TODO LOAD
-  // =======================================================
+  }, [loadCategories, loadStatistics]);
 
   useEffect(() => {
 
-    const timer =
-      setTimeout(() => {
+    const timer = setTimeout(loadTodos, 300);
 
-        loadTodos();
-
-      }, 300);
-
-
-    return () =>
-      clearTimeout(timer);
+    return () => clearTimeout(timer);
 
   }, [loadTodos]);
 
+  const refreshAll = useCallback(async () => {
 
-  // =======================================================
-  // REFRESH ALL DATA
-  // =======================================================
+    if (refreshing) return;
 
-  const refreshAll =
-    useCallback(async () => {
+    try {
 
-      if (refreshing) {
-        return;
-      }
+      setRefreshing(true);
 
+      await Promise.all([
+        loadTodos(),
+        loadCategories(),
+        loadStatistics()
+      ]);
 
-      try {
+      showToast("Dashboard refreshed!", "success");
 
-        setRefreshing(true);
+    } catch (error) {
 
-        await Promise.all([
-          loadTodos(),
-          loadCategories(),
-          loadStatistics()
-        ]);
+      console.error("Failed to refresh dashboard:", error);
 
+    } finally {
 
-        showToast(
-          "Dashboard refreshed!",
-          "success"
-        );
+      setRefreshing(false);
 
-      } catch (error) {
+    }
 
-        console.error(
-          "Failed to refresh dashboard:",
-          error
-        );
-
-      } finally {
-
-        setRefreshing(false);
-
-      }
-
-    }, [
-      loadTodos,
-      loadCategories,
-      loadStatistics,
-      refreshing,
-      showToast
-    ]);
-
-
-  // =======================================================
-  // OPEN CREATE FORM
-  // =======================================================
+  }, [
+    refreshing,
+    loadTodos,
+    loadCategories,
+    loadStatistics,
+    showToast
+  ]);
 
   const openCreateForm = () => {
 
-    setEditingTodoId(null);
-
-    setFormData({
-      ...EMPTY_FORM
-    });
-
-    setFormError("");
-
-    setShowCategoryForm(false);
-
-    setCategoryName("");
-
-    setCategoryColor("#6366f1");
-
-    setCategoryError("");
-
+    resetForm();
     setShowForm(true);
-
 
     window.scrollTo({
       top: 0,
@@ -671,55 +371,22 @@ function Dashboard() {
     });
 
   };
-
-
-  // =======================================================
-  // OPEN EDIT FORM
-  // =======================================================
 
   const handleEdit = (todo) => {
 
-    setEditingTodoId(
-      todo._id
-    );
-
+    setEditingTodoId(todo._id);
 
     setFormData({
-
-      title:
-        todo.title || "",
-
-      description:
-        todo.description || "",
-
-      dueDate:
-        formatDateForInput(
-          todo.dueDate
-        ),
-
-      priority:
-        todo.priority || "medium",
-
-      category:
-        todo.category?._id ||
-        todo.category ||
-        ""
-
+      title: todo.title || "",
+      description: todo.description || "",
+      dueDate: formatDateForInput(todo.dueDate),
+      priority: todo.priority || "medium",
+      category: todo.category?._id || todo.category || ""
     });
 
-
     setFormError("");
-
     setShowCategoryForm(false);
-
-    setCategoryName("");
-
-    setCategoryColor("#6366f1");
-
-    setCategoryError("");
-
     setShowForm(true);
-
 
     window.scrollTo({
       top: 0,
@@ -728,547 +395,371 @@ function Dashboard() {
 
   };
 
-
-  // =======================================================
-  // CLOSE FORM
-  // =======================================================
-
   const closeForm = () => {
 
-    if (formLoading) {
-      return;
-    }
-
+    if (formLoading) return;
 
     setShowForm(false);
-
-    setEditingTodoId(null);
-
-    setFormData({
-      ...EMPTY_FORM
-    });
-
-    setFormError("");
-
-    setShowCategoryForm(false);
-
-    setCategoryName("");
-
-    setCategoryColor("#6366f1");
-
-    setCategoryError("");
+    resetForm();
 
   };
 
+  const handleSubmit = async (event) => {
 
-  // =======================================================
-  // CREATE / UPDATE TODO
-  // =======================================================
+    event.preventDefault();
+    setFormError("");
 
-  const handleSubmit =
-    async (event) => {
+    if (!formData.title.trim()) {
 
-      event.preventDefault();
+      setFormError("Title is required.");
+      showToast("Title is required.", "error");
+      return;
 
-      setFormError("");
+    }
 
+    try {
 
-      if (!formData.title.trim()) {
+      setFormLoading(true);
 
-        setFormError(
-          "Title is required."
-        );
+      const token = getToken();
 
-        showToast(
-          "Title is required.",
-          "error"
-        );
-
+      if (!token) {
+        setFormError("You are not logged in.");
+        showToast("You are not logged in.", "error");
         return;
       }
 
+      const todoData = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        dueDate: formData.dueDate || null,
+        priority: formData.priority,
+        category: formData.category || null
+      };
 
-      try {
+      if (editingTodoId) {
 
-        setFormLoading(true);
+        await updateTodo(editingTodoId, todoData, token);
+        showToast("Todo updated successfully!", "success");
 
+      } else {
 
-        const token =
-          getToken();
-
-
-        if (!token) {
-
-          setFormError(
-            "You are not logged in."
-          );
-
-          showToast(
-            "You are not logged in.",
-            "error"
-          );
-
-          return;
-        }
-
-
-        const todoData = {
-
-          title:
-            formData.title.trim(),
-
-          description:
-            formData.description.trim(),
-
-          dueDate:
-            formData.dueDate || null,
-
-          priority:
-            formData.priority,
-
-          category:
-            formData.category || null
-
-        };
-
-
-        if (editingTodoId) {
-
-          await updateTodo(
-            editingTodoId,
-            todoData,
-            token
-          );
-
-
-          showToast(
-            "Todo updated successfully!",
-            "success"
-          );
-
-        } else {
-
-          await createTodo(
-            todoData,
-            token
-          );
-
-
-          showToast(
-            "Todo created successfully!",
-            "success"
-          );
-
-        }
-
-
-        closeForm();
-
-
-        await Promise.all([
-          loadTodos(),
-          loadStatistics()
-        ]);
-
-      } catch (error) {
-
-        console.error(
-          "Failed to save todo:",
-          error.response?.data ||
-          error.message
-        );
-
-
-        const message =
-          error.response?.data?.message ||
-          "Failed to save todo";
-
-
-        setFormError(message);
-
-
-        showToast(
-          message,
-          "error"
-        );
-
-      } finally {
-
-        setFormLoading(false);
+        await createTodo(todoData, token);
+        showToast("Todo created successfully!", "success");
 
       }
 
-    };
+      setShowForm(false);
+      resetForm();
 
+      await Promise.all([
+        loadTodos(),
+        loadStatistics()
+      ]);
 
-  // =======================================================
-  // TOGGLE TODO
-  // =======================================================
+    } catch (error) {
 
-  const handleToggle =
-    async (todoId) => {
+      console.error(
+        "Failed to save todo:",
+        error.response?.data || error.message
+      );
 
-      try {
+      const message =
+        error.response?.data?.message || "Failed to save todo";
 
-        const token =
-          getToken();
+      setFormError(message);
+      showToast(message, "error");
 
+    } finally {
 
-        if (!token) {
+      setFormLoading(false);
 
-          showToast(
-            "You are not logged in.",
-            "error"
-          );
-
-          return;
-        }
-
-
-        await toggleTodo(
-          todoId,
-          token
-        );
-
-
-        showToast(
-          "Todo status updated!",
-          "success"
-        );
-
-
-        await Promise.all([
-          loadTodos(),
-          loadStatistics()
-        ]);
-
-      } catch (error) {
-
-        console.error(
-          "Failed to toggle todo:",
-          error.response?.data ||
-          error.message
-        );
-
-
-        showToast(
-          error.response?.data?.message ||
-          "Failed to update todo.",
-          "error"
-        );
-
-      }
-
-    };
-
-
-  // =======================================================
-  // OPEN DELETE CONFIRMATION
-  // =======================================================
-
-  const handleDelete = (todoId) => {
-
-    setDeleteTodoId(todoId);
+    }
 
   };
 
+  const handleToggle = async (todoId) => {
 
-  // =======================================================
-  // CANCEL DELETE
-  // =======================================================
+    try {
+
+      const token = getToken();
+
+      if (!token) {
+        showToast("You are not logged in.", "error");
+        return;
+      }
+
+      await toggleTodo(todoId, token);
+
+      showToast("Todo status updated!", "success");
+
+      await Promise.all([
+        loadTodos(),
+        loadStatistics()
+      ]);
+
+    } catch (error) {
+
+      console.error(
+        "Failed to toggle todo:",
+        error.response?.data || error.message
+      );
+
+      showToast(
+        error.response?.data?.message || "Failed to update todo.",
+        "error"
+      );
+
+    }
+
+  };
+
+  const handleDelete = (todoId) => {
+    setDeleteTodoId(todoId);
+  };
 
   const cancelDelete = () => {
 
-    if (deleteLoading) {
-      return;
-    }
-
+    if (deleteLoading) return;
 
     setDeleteTodoId(null);
 
   };
 
+  const confirmDelete = async () => {
 
-  // =======================================================
-  // CONFIRM DELETE
-  // =======================================================
+    if (!deleteTodoId) return;
 
-  const confirmDelete =
-    async () => {
+    try {
 
-      if (!deleteTodoId) {
+      setDeleteLoading(true);
+
+      const token = getToken();
+
+      if (!token) {
+        showToast("You are not logged in.", "error");
         return;
       }
 
+      await deleteTodo(deleteTodoId, token);
 
-      try {
+      showToast("Todo deleted successfully!", "success");
+      setDeleteTodoId(null);
 
-        setDeleteLoading(true);
+      await Promise.all([
+        loadTodos(),
+        loadStatistics()
+      ]);
 
+    } catch (error) {
 
-        const token =
-          getToken();
+      console.error(
+        "Failed to delete todo:",
+        error.response?.data || error.message
+      );
 
+      showToast(
+        error.response?.data?.message || "Failed to delete todo.",
+        "error"
+      );
 
-        if (!token) {
+    } finally {
 
-          showToast(
-            "You are not logged in.",
-            "error"
-          );
+      setDeleteLoading(false);
 
-          return;
-        }
+    }
 
+  };
 
-        await deleteTodo(
-          deleteTodoId,
-          token
-        );
+  const handleCreateCategory = async () => {
 
+    setCategoryError("");
 
-        showToast(
-          "Todo deleted successfully!",
-          "success"
-        );
+    const trimmedName = categoryName.trim();
 
+    if (!trimmedName) {
+      setCategoryError("Category name is required");
+      showToast("Category name is required", "error");
+      return;
+    }
 
-        setDeleteTodoId(null);
+    try {
 
+      setCategoryCreating(true);
 
-        await Promise.all([
-          loadTodos(),
-          loadStatistics()
-        ]);
+      const token = getToken();
 
-      } catch (error) {
-
-        console.error(
-          "Failed to delete todo:",
-          error.response?.data ||
-          error.message
-        );
-
-
-        showToast(
-          error.response?.data?.message ||
-          "Failed to delete todo.",
-          "error"
-        );
-
-      } finally {
-
-        setDeleteLoading(false);
-
+      if (!token) {
+        setCategoryError("You are not logged in");
+        showToast("You are not logged in", "error");
+        return;
       }
 
-    };
+      const data = await createCategory(
+        {
+          name: trimmedName,
+          color: categoryColor
+        },
+        token
+      );
 
+      const createdCategory = data?.category || data;
 
-  // =======================================================
-  // CREATE CATEGORY
-  // =======================================================
+      await loadCategories();
 
-  const handleCreateCategory =
-    async () => {
+      if (createdCategory?._id) {
+        setFormData(previous => ({
+          ...previous,
+          category: createdCategory._id
+        }));
+      }
 
+      showToast("Category created successfully!", "success");
+
+      setCategoryName("");
+      setCategoryColor("#6366f1");
       setCategoryError("");
+      setShowCategoryForm(false);
 
+    } catch (error) {
 
-      const trimmedName =
-        categoryName.trim();
+      console.error(
+        "Failed to create category:",
+        error.response?.data || error.message
+      );
 
+      const message =
+        error.response?.data?.message || "Failed to create category";
 
-      if (!trimmedName) {
+      setCategoryError(message);
+      showToast(message, "error");
 
-        setCategoryError(
-          "Category name is required"
-        );
+    } finally {
 
+      setCategoryCreating(false);
 
-        showToast(
-          "Category name is required",
-          "error"
-        );
+    }
 
+  };
+
+  const handleEditCategory = (category) => {
+    setEditingCategoryId(category._id);
+    setCategoryName(category.name);
+    setCategoryColor(category.color || "#6366f1");
+    setCategoryError("");
+    setShowCategoryForm(true);
+  };
+
+  const handleUpdateCategory = async () => {
+  if (!categoryName.trim()) {
+    setCategoryError("Category name is required");
+    return;
+  }
+
+  try {
+    setCategoryCreating(true);
+
+    const token = getToken();
+
+    await updateCategory(
+      editingCategoryId,
+      {
+        name: categoryName.trim(),
+        color: categoryColor
+      },
+      token
+    );
+
+    await loadCategories();
+
+    setEditingCategoryId(null);
+    setCategoryName("");
+    setCategoryColor("#6366f1");
+    setShowCategoryForm(false);
+
+    showToast("Category updated successfully!");
+
+  } catch (error) {
+    const message =
+      error.response?.data?.message || "Failed to update category";
+
+    setCategoryError(message);
+    showToast(message, "error");
+
+  } finally {
+    setCategoryCreating(false);
+  }
+};
+
+  const handleDeleteCategory = async (categoryId) => {
+    if (!window.confirm("Are you sure you want to delete this category?")) {
+      return;
+    }
+
+    try {
+      setCategoryDeleting(true);
+
+      const token = getToken();
+
+      if (!token) {
+        showToast("You are not logged in.", "error");
         return;
       }
 
+      await deleteCategory(categoryId, token);
 
-      try {
+      await loadCategories();
 
-        setCategoryCreating(true);
-
-
-        const token =
-          getToken();
-
-
-        if (!token) {
-
-          setCategoryError(
-            "You are not logged in"
-          );
-
-
-          showToast(
-            "You are not logged in",
-            "error"
-          );
-
-          return;
-        }
-
-
-        const data =
-          await createCategory(
-            {
-              name: trimmedName,
-              color: categoryColor
-            },
-            token
-          );
-
-
-        const createdCategory =
-          data?.category || data;
-
-
-        await loadCategories();
-
-
-        if (createdCategory?._id) {
-
-          setFormData(
-            (previous) => ({
-              ...previous,
-              category:
-                createdCategory._id
-            })
-          );
-
-        }
-
-
-        showToast(
-          "Category created successfully!",
-          "success"
-        );
-
-
-        setCategoryName("");
-
-        setCategoryColor("#6366f1");
-
-        setCategoryError("");
-
-        setShowCategoryForm(false);
-
-      } catch (error) {
-
-        console.error(
-          "Failed to create category:",
-          error.response?.data ||
-          error.message
-        );
-
-
-        const message =
-          error.response?.data?.message ||
-          "Failed to create category";
-
-
-        setCategoryError(message);
-
-
-        showToast(
-          message,
-          "error"
-        );
-
-      } finally {
-
-        setCategoryCreating(false);
-
+      if (selectedCategory === categoryId) {
+        setSelectedCategory("all");
       }
 
-    };
+      if (formData.category === categoryId) {
+        setFormData(previous => ({
+          ...previous,
+          category: ""
+        }));
+      }
 
+      showToast("Category deleted successfully!");
 
-  // =======================================================
-  // CLEAR FILTERS
-  // =======================================================
+    } catch (error) {
+      showToast(
+        error.response?.data?.message || "Failed to delete category.",
+        "error"
+      );
+    } finally {
+      setCategoryDeleting(false);
+    }
+  };
 
   const clearFilters = () => {
 
     setSearch("");
-
     setStatus("all");
-
     setSelectedCategory("all");
-
     setDueDateFilter("all");
 
   };
 
-
-  // =======================================================
-  // ACTIVE FILTERS
-  // =======================================================
-
-  const hasActiveFilters =
-    useMemo(() => {
-
-      return (
-        search.trim() !== "" ||
-        status !== "all" ||
-        selectedCategory !== "all" ||
-        dueDateFilter !== "all"
-      );
-
-    }, [
-      search,
-      status,
-      selectedCategory,
-      dueDateFilter
-    ]);
-
-
-  // =======================================================
-  // LOGOUT
-  // =======================================================
-
   const handleLogout = () => {
 
     localStorage.removeItem("token");
-
     localStorage.removeItem("user");
 
     setUser(null);
-
     window.location.href = "/";
 
   };
-
-
-  // =======================================================
-  // RENDER
-  // =======================================================
 
   return (
 
     <div className="min-h-screen bg-gray-100">
 
-
       <Toast
         toast={toast}
         setToast={setToast}
       />
-
-
-      {/* ===================================================
-          DELETE CONFIRMATION MODAL
-      =================================================== */}
 
       <DeleteConfirmation
         deleteTodoId={deleteTodoId}
@@ -1277,324 +768,87 @@ function Dashboard() {
         confirmDelete={confirmDelete}
       />
 
-      {/* ===================================================
-          HEADER
-      =================================================== */}
-
       <DashboardHeader
         user={user}
         refreshAll={refreshAll}
         refreshing={refreshing}
         handleLogout={handleLogout}
       />
-      {/* ===================================================
-          MAIN
-      =================================================== */}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Welcome */}
-
-        <div className="mb-6">
-
-          <h2 className="text-2xl font-bold text-gray-900">
-            Hello,{" "}
-            <span className="text-indigo-600">
-              {user?.name || "User"}
-            </span>
-            {" "}👋
-          </h2>
-
-          <p className="text-gray-500 mt-1">
-            Organize and manage your todos
-          </p>
-
-        </div>
-
-
-        {/* Statistics */}
-
         <StatisticsPanel
-
           statistics={statistics}
-
-          statisticsLoading={
-            statisticsLoading
-          }
-
-          statisticsError={
-            statisticsError
-          }
-
-          showStatistics={
-            showStatistics
-          }
-
-          setShowStatistics={
-            setShowStatistics
-          }
-
-          dueDateFilter={
-            dueDateFilter
-          }
-
-          setDueDateFilter={
-            setDueDateFilter
-          }
-
-          selectedCategory={
-            selectedCategory
-          }
-
-          setSelectedCategory={
-            setSelectedCategory
-          }
-
+          statisticsLoading={statisticsLoading}
+          statisticsError={statisticsError}
+          showStatistics={showStatistics}
+          setShowStatistics={setShowStatistics}
+          dueDateFilter={dueDateFilter}
+          setDueDateFilter={setDueDateFilter}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
         />
-
-
-        {/* Page Header */}
 
         <DashboardPageHeader
           user={user}
           openCreateForm={openCreateForm}
         />
 
-        {/* Todo Form */}
-
         <TodoForm
-
           showForm={showForm}
-
-          editingTodoId={
-            editingTodoId
-          }
-
+          editingTodoId={editingTodoId}
           formData={formData}
-
-          formLoading={
-            formLoading
-          }
-
-          formError={
-            formError
-          }
-
-          categories={
-            categories
-          }
-
-          categoryLoading={
-            categoryLoading
-          }
-
-          showCategoryForm={
-            showCategoryForm
-          }
-
-          categoryName={
-            categoryName
-          }
-
-          categoryColor={
-            categoryColor
-          }
-
-          categoryError={
-            categoryError
-          }
-
-          categoryCreating={
-            categoryCreating
-          }
-
-          setFormData={
-            setFormData
-          }
-
-          setShowCategoryForm={
-            setShowCategoryForm
-          }
-
-          setCategoryName={
-            setCategoryName
-          }
-
-          setCategoryColor={
-            setCategoryColor
-          }
-
-          setCategoryError={
-            setCategoryError
-          }
-
-          handleSubmit={
-            handleSubmit
-          }
-
-          handleCreateCategory={
-            handleCreateCategory
-          }
-
-          closeForm={
-            closeForm
-          }
-
+          formLoading={formLoading}
+          formError={formError}
+          categories={categories}
+          categoryLoading={categoryLoading}
+          showCategoryForm={showCategoryForm}
+          categoryName={categoryName}
+          categoryColor={categoryColor}
+          categoryError={categoryError}
+          categoryCreating={categoryCreating}
+          setFormData={setFormData}
+          setShowCategoryForm={setShowCategoryForm}
+          setCategoryName={setCategoryName}
+          setCategoryColor={setCategoryColor}
+          setCategoryError={setCategoryError}
+          handleSubmit={handleSubmit}
+          handleCreateCategory={handleCreateCategory}
+          closeForm={closeForm}
         />
-
-
-        {/* Filters */}
 
         <TodoFilters
-
           search={search}
-
           setSearch={setSearch}
-
           status={status}
-
           setStatus={setStatus}
-
-          selectedCategory={
-            selectedCategory
-          }
-
-          setSelectedCategory={
-            setSelectedCategory
-          }
-
-          dueDateFilter={
-            dueDateFilter
-          }
-
-          setDueDateFilter={
-            setDueDateFilter
-          }
-
-          categories={
-            categories
-          }
-
-          categoryLoading={
-            categoryLoading
-          }
-
-          hasActiveFilters={
-            hasActiveFilters
-          }
-
-          clearFilters={
-            clearFilters
-          }
-
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          dueDateFilter={dueDateFilter}
+          setDueDateFilter={setDueDateFilter}
+          categories={categories}
+          categoryLoading={categoryLoading}
+          hasActiveFilters={hasActiveFilters}
+          clearFilters={clearFilters}
         />
 
-
-        {/* Todo Error */}
-
-        {todoError && (
-
-          <div className="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
-            {todoError}
-          </div>
-
-        )}
-
-
-        {/* Todo Loading */}
-
-        {todoLoading && (
-
-          <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
-
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
-
-            <p className="mt-3 text-gray-500">
-              Loading todos...
-            </p>
-
-          </div>
-
-        )}
-
-
-        {/* Empty */}
-
-        {!todoLoading &&
-          todos.length === 0 && (
-
-            <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
-
-              <div className="text-4xl mb-3">
-                📝
-              </div>
-
-              <h3 className="text-lg font-semibold text-gray-900">
-                No todos found
-              </h3>
-
-              <p className="text-gray-500 mt-2">
-
-                {hasActiveFilters
-                  ? "Try changing or clearing your filters."
-                  : "Create your first todo to get started."}
-
-              </p>
-
-
-              {hasActiveFilters && (
-
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-                >
-                  Clear Filters
-                </button>
-
-              )}
-
-            </div>
-
-          )}
-
-
-        {/* Todo List */}
-
-        {!todoLoading &&
-          todos.length > 0 && (
-
-            <div className="space-y-4">
-
-              {todos.map(
-                (todo) => (
-
-                  <TodoCard
-                    key={todo._id}
-                    todo={todo}
-                    handleToggle={
-                      handleToggle
-                    }
-                    handleEdit={
-                      handleEdit
-                    }
-                    handleDelete={
-                      handleDelete
-                    }
-                  />
-
-                )
-              )}
-
-            </div>
-
-          )}
+        <TodoListSection
+          todoError={todoError}
+          todoLoading={todoLoading}
+          todos={todos}
+          hasActiveFilters={hasActiveFilters}
+          clearFilters={clearFilters}
+          handleToggle={handleToggle}
+          handleEdit={handleEdit}
+          handleDelete={handleDelete}
+        />
 
       </main>
 
     </div>
-  );
-}
 
+  );
+
+}
 
 export default Dashboard;
