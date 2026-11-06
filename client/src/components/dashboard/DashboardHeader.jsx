@@ -1,3 +1,4 @@
+
 import { getUserInitial } from "../../utils/todoUtils";
 
 function DashboardHeader({
@@ -7,33 +8,55 @@ function DashboardHeader({
   handleLogout
 }) {
   return (
-    <header className="bg-white border-b">
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="px-4 sm:px-6">
 
-        <div className="h-20 flex items-center justify-between">
+        <div className="h-16 flex items-center justify-between">
 
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">
-              Smart Todo
-            </h1>
-
-            <p className="text-xs text-gray-500">
-              Manage your tasks
-            </p>
-          </div>
+          {/* Logo and Application Name */}
 
           <div className="flex items-center gap-3">
 
-            {user && (
-              <div className="hidden sm:flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+              <span className="text-xl font-bold">✓</span>
+            </div>
 
-                <div className="h-10 w-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">
+                Smart Todo
+              </h1>
+
+              <p className="text-xs text-gray-500">
+                Manage your tasks
+              </p>
+            </div>
+
+          </div>
+
+          {/* User and Actions */}
+
+          <div className="flex items-center gap-3">
+
+            <button
+              type="button"
+              onClick={refreshAll}
+              disabled={refreshing}
+              className="rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+              title="Refresh dashboard"
+            >
+              {refreshing ? "↻" : "↻ Refresh"}
+            </button>
+
+            {user && (
+              <div className="hidden sm:flex items-center gap-2">
+
+                <div className="h-9 w-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold">
                   {getUserInitial(user.name)}
                 </div>
 
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-gray-900">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">
                     {user.name || "User"}
                   </p>
 
@@ -46,25 +69,15 @@ function DashboardHeader({
             )}
 
             {user && (
-              <div className="sm:hidden h-10 w-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold">
+              <div className="sm:hidden h-9 w-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold">
                 {getUserInitial(user.name)}
               </div>
             )}
 
             <button
               type="button"
-              onClick={refreshAll}
-              disabled={refreshing}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              title="Refresh dashboard"
-            >
-              {refreshing ? "↻" : "↻ Refresh"}
-            </button>
-
-            <button
-              type="button"
               onClick={handleLogout}
-              className="rounded-lg bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
             >
               Logout
             </button>

@@ -18,6 +18,12 @@ function TodoForm({
     setCategoryError,
     handleSubmit,
     handleCreateCategory,
+    handleUpdateCategory,
+    handleEditCategory,
+    handleDeleteCategory,
+    handleCancelCategory,
+    categoryDeleting,
+    editingCategoryId,
     closeForm
 }) {
 
@@ -195,6 +201,44 @@ function TodoForm({
                             ))}
                     </select>
 
+                    {/* Category List */}
+
+                    <div className="mt-3 space-y-2">
+
+                        {categories.map((category) => (
+                            <div
+                                key={category._id}
+                                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                            >
+                                <span className="text-sm font-medium text-gray-700">
+                                    {category.name}
+                                </span>
+
+                                <div className="flex gap-3">
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleEditCategory(category)}
+                                        className="text-sm font-semibold text-indigo-600"
+                                    >
+                                        Edit
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteCategory(category._id)}
+                                        disabled={categoryDeleting}
+                                        className="text-sm font-semibold text-red-600 disabled:opacity-50"
+                                    >
+                                        Delete
+                                    </button>
+
+                                </div>
+                            </div>
+                        ))}
+
+                    </div>
+
                     {/* Custom Category Form */}
 
                     {showCategoryForm && (
@@ -202,7 +246,7 @@ function TodoForm({
                         <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
 
                             <h4 className="font-semibold text-gray-900 mb-4">
-                                Create Custom Category
+                                {editingCategoryId ? "Edit Category" : "Create Custom Category"}
                             </h4>
 
                             {/* Category Error */}
@@ -264,22 +308,22 @@ function TodoForm({
 
                                     <button
                                         type="button"
-                                        onClick={handleCreateCategory}
+                                        onClick={editingCategoryId
+                                            ? handleUpdateCategory
+                                            : handleCreateCategory
+                                        }
                                         disabled={categoryCreating}
                                         className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         {categoryCreating
-                                            ? "Creating..."
-                                            : "Create Category"}
+                                            ? editingCategoryId ? "Updating..." : "Creating..."
+                                            : editingCategoryId ? "Update Category" : "Create Category"
+                                        }
                                     </button>
 
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setShowCategoryForm(false);
-                                            setCategoryError("");
-                                            setCategoryName("");
-                                        }}
+                                        onClick={handleCancelCategory}
                                         className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                                     >
                                         Cancel

@@ -1,10 +1,7 @@
 const Category = require("../models/Category");
 const Todo = require("../models/Todo");
 
-
-// =========================
 // Create Category
-// =========================
 
 const createCategory = async (req, res) => {
   try {
@@ -59,10 +56,7 @@ const createCategory = async (req, res) => {
   }
 };
 
-
-// =========================
 // Get All Categories
-// =========================
 
 const getCategories = async (req, res) => {
   try {
@@ -83,10 +77,7 @@ const getCategories = async (req, res) => {
   }
 };
 
-
-// =========================
 // Get Single Category
-// =========================
 
 const getCategory = async (req, res) => {
   try {
@@ -112,10 +103,7 @@ const getCategory = async (req, res) => {
   }
 };
 
-
-// =========================
 // Update Category
-// =========================
 
 const updateCategory = async (req, res) => {
   try {
@@ -183,10 +171,8 @@ const updateCategory = async (req, res) => {
   }
 };
 
-
-// =========================
 // Delete Category
-// =========================
+
 
 const deleteCategory = async (req, res) => {
   try {
@@ -236,10 +222,7 @@ const deleteCategory = async (req, res) => {
   }
 };
 
-
-// =========================
 // Export
-// =========================
 
 module.exports = {
   createCategory,

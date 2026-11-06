@@ -1,9 +1,6 @@
 const Todo = require("../models/Todo");
 
-
-// =========================
 // Allowed Priority Levels
-// =========================
 
 const ALLOWED_PRIORITIES = [
   "high",
@@ -12,9 +9,7 @@ const ALLOWED_PRIORITIES = [
 ];
 
 
-// =========================
 // Create Todo
-// =========================
 
 const createTodo = async (req, res) => {
   try {
@@ -27,9 +22,7 @@ const createTodo = async (req, res) => {
     } = req.body;
 
 
-    // -------------------------
     // Validate title
-    // -------------------------
 
     if (!title || !title.trim()) {
       return res.status(400).json({
@@ -37,10 +30,7 @@ const createTodo = async (req, res) => {
       });
     }
 
-
-    // -------------------------
     // Validate priority
-    // -------------------------
 
     if (
       priority &&
@@ -53,9 +43,7 @@ const createTodo = async (req, res) => {
     }
 
 
-    // -------------------------
     // Validate due date
-    // -------------------------
 
     if (
       dueDate &&
@@ -66,10 +54,8 @@ const createTodo = async (req, res) => {
       });
     }
 
-
-    // -------------------------
     // Create Todo
-    // -------------------------
+  
 
     const todo = await Todo.create({
       title: title.trim(),
@@ -94,9 +80,7 @@ const createTodo = async (req, res) => {
     });
 
 
-    // -------------------------
     // Populate Category
-    // -------------------------
 
     const populatedTodo =
       await todo.populate("category");
@@ -118,11 +102,8 @@ const createTodo = async (req, res) => {
 };
 
 
-
-// =========================
 // Get All Todos
 // Search + Status + Category + Due Date
-// =========================
 
 const getTodos = async (req, res) => {
   try {
@@ -134,10 +115,7 @@ const getTodos = async (req, res) => {
       dueDate
     } = req.query;
 
-
-    // -------------------------
     // Base Filter
-    // -------------------------
 
     const filter = {
       user: req.user._id,
@@ -154,10 +132,7 @@ const getTodos = async (req, res) => {
     // multiple filters can work together.
     const conditions = [];
 
-
-    // =========================
     // Search Filter
-    // =========================
 
     if (
       search &&
@@ -188,9 +163,7 @@ const getTodos = async (req, res) => {
     }
 
 
-    // =========================
     // Status Filter
-    // =========================
 
     if (
       status &&
@@ -237,10 +210,7 @@ const getTodos = async (req, res) => {
       }
     }
 
-
-    // =========================
     // Category Filter
-    // =========================
 
     if (
       category &&
@@ -252,10 +222,7 @@ const getTodos = async (req, res) => {
       });
     }
 
-
-    // =========================
     // Due Date Filter
-    // =========================
 
     if (
       dueDate &&
@@ -264,10 +231,7 @@ const getTodos = async (req, res) => {
 
       const now = new Date();
 
-
-      // -------------------------
       // Today
-      // -------------------------
 
       if (dueDate === "today") {
 
@@ -301,11 +265,7 @@ const getTodos = async (req, res) => {
         });
       }
 
-
-      // -------------------------
       // Tomorrow
-      // -------------------------
-
       else if (
         dueDate === "tomorrow"
       ) {
@@ -344,10 +304,7 @@ const getTodos = async (req, res) => {
         });
       }
 
-
-      // -------------------------
       // Upcoming
-      // -------------------------
 
       else if (
         dueDate === "upcoming"
@@ -360,10 +317,7 @@ const getTodos = async (req, res) => {
         });
       }
 
-
-      // -------------------------
       // No Due Date
-      // -------------------------
 
       else if (
         dueDate === "none"
@@ -384,10 +338,7 @@ const getTodos = async (req, res) => {
         });
       }
 
-
-      // -------------------------
       // Overdue
-      // -------------------------
 
       else if (
         dueDate === "overdue"
@@ -405,10 +356,7 @@ const getTodos = async (req, res) => {
         });
       }
 
-
-      // -------------------------
       // Invalid Due Date Filter
-      // -------------------------
 
       else {
 
@@ -420,19 +368,14 @@ const getTodos = async (req, res) => {
     }
 
 
-    // =========================
     // Apply Conditions
-    // =========================
 
     if (conditions.length > 0) {
 
       filter.$and = conditions;
     }
 
-
-    // =========================
     // Get Todos
-    // =========================
 
     const todos =
       await Todo.find(filter)
@@ -441,10 +384,7 @@ const getTodos = async (req, res) => {
           createdAt: -1
         });
 
-
-    // =========================
     // Add Overdue Property
-    // =========================
 
     const now = new Date();
 
@@ -466,10 +406,7 @@ const getTodos = async (req, res) => {
         };
       });
 
-
-    // =========================
     // Response
-    // =========================
 
     res.json(formattedTodos);
 
@@ -483,11 +420,7 @@ const getTodos = async (req, res) => {
   }
 };
 
-
-
-// =========================
 // Get Single Todo
-// =========================
 
 const getTodo = async (req, res) => {
   try {
@@ -513,10 +446,7 @@ const getTodo = async (req, res) => {
       });
     }
 
-
-    // -------------------------
     // Calculate Overdue
-    // -------------------------
 
     const overdue =
       !todo.completed &&
@@ -543,11 +473,8 @@ const getTodo = async (req, res) => {
   }
 };
 
-
-
-// =========================
 // Update Todo
-// =========================
+
 
 const updateTodo = async (req, res) => {
   try {
@@ -583,10 +510,7 @@ const updateTodo = async (req, res) => {
       completed
     } = req.body;
 
-
-    // =========================
     // Update Title
-    // =========================
 
     if (title !== undefined) {
 
@@ -601,10 +525,7 @@ const updateTodo = async (req, res) => {
         title.trim();
     }
 
-
-    // =========================
     // Update Description
-    // =========================
 
     if (
       description !== undefined
@@ -614,10 +535,7 @@ const updateTodo = async (req, res) => {
         description;
     }
 
-
-    // =========================
     // Update Due Date
-    // =========================
 
     if (
       dueDate !== undefined
@@ -640,9 +558,7 @@ const updateTodo = async (req, res) => {
     }
 
 
-    // =========================
     // Update Priority
-    // =========================
 
     if (
       priority !== undefined
@@ -664,10 +580,7 @@ const updateTodo = async (req, res) => {
         priority;
     }
 
-
-    // =========================
     // Update Category
-    // =========================
 
     if (
       category !== undefined
@@ -677,10 +590,7 @@ const updateTodo = async (req, res) => {
         category || null;
     }
 
-
-    // =========================
     // Update Completed
-    // =========================
 
     if (
       completed !== undefined
@@ -700,27 +610,18 @@ const updateTodo = async (req, res) => {
         completed;
     }
 
-
-    // =========================
     // Save
-    // =========================
 
     await todo.save();
 
-
-    // =========================
     // Populate Category
-    // =========================
 
     const updatedTodo =
       await todo.populate(
         "category"
       );
 
-
-    // =========================
     // Calculate Overdue
-    // =========================
 
     const overdue =
       !updatedTodo.completed &&
@@ -728,10 +629,7 @@ const updateTodo = async (req, res) => {
       new Date(updatedTodo.dueDate)
         < new Date();
 
-
-    // =========================
     // Response
-    // =========================
 
     res.json({
 
@@ -759,11 +657,7 @@ const updateTodo = async (req, res) => {
   }
 };
 
-
-
-// =========================
 // Soft Delete Todo
-// =========================
 
 const deleteTodo = async (req, res) => {
   try {
@@ -789,10 +683,7 @@ const deleteTodo = async (req, res) => {
       });
     }
 
-
-    // -------------------------
     // Soft Delete
-    // -------------------------
 
     todo.deleted = true;
 
@@ -816,11 +707,7 @@ const deleteTodo = async (req, res) => {
   }
 };
 
-
-
-// =========================
 // Toggle Complete / Incomplete
-// =========================
 
 const toggleTodo = async (req, res) => {
   try {
@@ -846,10 +733,7 @@ const toggleTodo = async (req, res) => {
       });
     }
 
-
-    // -------------------------
     // Toggle
-    // -------------------------
 
     todo.completed =
       !todo.completed;
@@ -857,20 +741,14 @@ const toggleTodo = async (req, res) => {
 
     await todo.save();
 
-
-    // -------------------------
     // Populate Category
-    // -------------------------
 
     const updatedTodo =
       await todo.populate(
         "category"
       );
 
-
-    // -------------------------
     // Calculate Overdue
-    // -------------------------
 
     const overdue =
       !updatedTodo.completed &&
@@ -878,10 +756,7 @@ const toggleTodo = async (req, res) => {
       new Date(updatedTodo.dueDate)
         < new Date();
 
-
-    // -------------------------
     // Response
-    // -------------------------
 
     res.json({
 
@@ -912,11 +787,7 @@ const toggleTodo = async (req, res) => {
   }
 };
 
-
-
-// =========================
 // Export
-// =========================
 
 module.exports = {
 

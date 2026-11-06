@@ -1,23 +1,16 @@
 const Todo = require("../models/Todo");
 
-
-// =========================
 // Get Todo Statistics
-// =========================
 
 const getStatistics = async (req, res) => {
   try {
 
-    // =========================
     // Current Time
-    // =========================
+
 
     const now = new Date();
 
-
-    // =========================
     // Start of Today
-    // =========================
 
     const startOfToday = new Date(now);
 
@@ -28,10 +21,7 @@ const getStatistics = async (req, res) => {
       0
     );
 
-
-    // =========================
     // End of Today
-    // =========================
 
     const endOfToday = new Date(now);
 
@@ -42,10 +32,7 @@ const getStatistics = async (req, res) => {
       999
     );
 
-
-    // =========================
     // Start of Tomorrow
-    // =========================
 
     const startOfTomorrow = new Date(
       startOfToday
@@ -55,10 +42,8 @@ const getStatistics = async (req, res) => {
       startOfTomorrow.getDate() + 1
     );
 
-
-    // =========================
     // End of Tomorrow
-    // =========================
+
 
     const endOfTomorrow = new Date(
       startOfTomorrow
@@ -71,10 +56,8 @@ const getStatistics = async (req, res) => {
       999
     );
 
-
-    // =========================
     // Base Filter
-    // =========================
+
     // IMPORTANT:
     // Only current user's todos
     // and exclude deleted todos.
@@ -86,19 +69,15 @@ const getStatistics = async (req, res) => {
       }
     };
 
-
-    // =========================
     // Get All Todos
-    // =========================
+
 
     const todos = await Todo.find(
       baseFilter
     ).populate("category");
 
-
-    // =========================
     // Basic Statistics
-    // =========================
+
 
     const total = todos.length;
 
@@ -114,10 +93,8 @@ const getStatistics = async (req, res) => {
         todo => !todo.completed
       ).length;
 
-
-    // =========================
     // Overdue
-    // =========================
+
 
     const overdue =
       todos.filter(todo =>
@@ -126,10 +103,8 @@ const getStatistics = async (req, res) => {
         new Date(todo.dueDate) < now
       ).length;
 
-
-    // =========================
     // Due Today
-    // =========================
+
 
     const dueToday =
       todos.filter(todo =>
@@ -139,10 +114,7 @@ const getStatistics = async (req, res) => {
         new Date(todo.dueDate) <= endOfToday
       ).length;
 
-
-    // =========================
     // Due Tomorrow
-    // =========================
 
     const dueTomorrow =
       todos.filter(todo =>
@@ -152,10 +124,7 @@ const getStatistics = async (req, res) => {
         new Date(todo.dueDate) <= endOfTomorrow
       ).length;
 
-
-    // =========================
     // Upcoming
-    // =========================
 
     const upcoming =
       todos.filter(todo =>
@@ -164,20 +133,15 @@ const getStatistics = async (req, res) => {
         new Date(todo.dueDate) > endOfTomorrow
       ).length;
 
-
-    // =========================
     // No Due Date
-    // =========================
 
     const noDueDate =
       todos.filter(todo =>
         !todo.dueDate
       ).length;
 
-
-    // =========================
     // Priority Statistics
-    // =========================
+
 
     const high =
       todos.filter(
@@ -196,10 +160,8 @@ const getStatistics = async (req, res) => {
         todo => todo.priority === "low"
       ).length;
 
-
-    // =========================
     // Completion Percentage
-    // =========================
+
 
     const completionPercentage =
       total === 0
@@ -208,10 +170,8 @@ const getStatistics = async (req, res) => {
             (completed / total) * 100
           );
 
-
-    // =========================
     // Category Statistics
-    // =========================
+
 
     const categoryStats = {};
 
@@ -272,18 +232,15 @@ const getStatistics = async (req, res) => {
     });
 
 
-    // =========================
-    // Convert Category Object
-    // to Array
-    // =========================
+  
+    // Convert Category Object to Array
+   
 
     const categories =
       Object.values(categoryStats);
 
-
-    // =========================
     // Response
-    // =========================
+
 
     res.json({
 

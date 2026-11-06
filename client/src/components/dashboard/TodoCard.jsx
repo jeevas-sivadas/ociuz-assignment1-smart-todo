@@ -1,3 +1,4 @@
+
 import { formatDate } from "../../utils/dateUtils";
 import { getPriorityClass } from "../../utils/todoUtils";
 
@@ -9,15 +10,13 @@ function TodoCard({
 }) {
     return (
         <div
-            className={`bg-white rounded-xl shadow-sm border p-5 transition ${
-                todo.completed ? "opacity-75" : ""
+            className={`bg-white border border-gray-100 rounded-md px-4 py-3 transition hover:shadow-sm ${
+                todo.completed ? "opacity-60" : ""
             } ${
-                todo.overdue
-                    ? "border-red-300"
-                    : "border-gray-200"
+                todo.overdue ? "border-l-4 border-l-red-400" : ""
             }`}
         >
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3">
 
                 {/* Completion Button */}
 
@@ -27,7 +26,7 @@ function TodoCard({
                     className={`mt-1 h-6 w-6 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition ${
                         todo.completed
                             ? "bg-green-500 border-green-500 text-white"
-                            : "border-gray-300 hover:border-indigo-500"
+                            : "border-gray-400 hover:border-blue-500"
                     }`}
                     title={
                         todo.completed
@@ -42,103 +41,108 @@ function TodoCard({
 
                 <div className="flex-1 min-w-0">
 
-                    {/* Todo Title and Description */}
+                    {/* Todo Title */}
 
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
 
-                        <div>
+                        <div className="min-w-0">
+
                             <h3
-                                className={`text-lg font-semibold break-words ${
+                                className={`text-base font-medium break-words ${
                                     todo.completed
                                         ? "line-through text-gray-400"
-                                        : "text-gray-900"
+                                        : "text-gray-800"
                                 }`}
                             >
                                 {todo.title}
                             </h3>
 
+                            {/* Category */}
+
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+
+                                {todo.category && (
+                                    <span
+                                        className="text-xs font-medium"
+                                        style={{
+                                            color: todo.category.color || "#6366f1"
+                                        }}
+                                    >
+                                        {todo.category.name}
+                                    </span>
+                                )}
+
+                                {todo.dueDate && (
+                                    <span
+                                        className={`text-xs ${
+                                            todo.overdue
+                                                ? "text-red-600"
+                                                : "text-gray-500"
+                                        }`}
+                                    >
+                                        {todo.overdue
+                                            ? "⚠ Overdue · "
+                                            : "📅 "}
+                                        {formatDate(todo.dueDate)}
+                                    </span>
+                                )}
+
+                                {todo.completed && (
+                                    <span className="text-xs text-green-600">
+                                        ✓ Completed
+                                    </span>
+                                )}
+
+                            </div>
+
+                            {/* Description */}
+
                             {todo.description && (
-                                <p className="mt-1 text-sm text-gray-500 break-words">
+                                <p className="mt-2 text-sm text-gray-500 break-words">
                                     {todo.description}
                                 </p>
                             )}
+
+                            {/* Priority */}
+
+                            <div className="mt-2">
+                                <span
+                                    className={`rounded-full px-2 py-1 text-xs font-medium capitalize ${getPriorityClass(todo.priority)}`}
+                                >
+                                    {todo.priority} priority
+                                </span>
+                            </div>
+
                         </div>
 
                         {/* Edit and Delete Buttons */}
 
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-3 flex-shrink-0">
 
                             <button
                                 type="button"
                                 onClick={() => handleEdit(todo)}
-                                className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-100"
+                                className="text-sm text-gray-400 hover:text-blue-600 transition"
+                                title="Edit todo"
                             >
-                                ✏ Edit
+                                ✏
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => handleDelete(todo._id)}
-                                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-100"
+                                className="text-sm text-gray-400 hover:text-red-600 transition"
+                                title="Delete todo"
                             >
-                                🗑 Delete
+                                🗑
                             </button>
 
                         </div>
-                    </div>
-
-                    {/* Todo Details */}
-
-                    <div className="flex flex-wrap items-center gap-2 mt-4">
-
-                        <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getPriorityClass(todo.priority)}`}
-                        >
-                            {todo.priority} priority
-                        </span>
-
-                        {todo.category && (
-                            <span
-                                className="rounded-full px-3 py-1 text-xs font-semibold text-white"
-                                style={{
-                                    backgroundColor:
-                                        todo.category.color || "#6366f1"
-                                }}
-                            >
-                                {todo.category.name}
-                            </span>
-                        )}
-
-                        {todo.dueDate && (
-                            <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                    todo.overdue
-                                        ? "bg-red-100 text-red-700"
-                                        : "bg-gray-100 text-gray-600"
-                                }`}
-                            >
-                                {todo.overdue
-                                    ? "⚠ Overdue · "
-                                    : "Due · "}
-
-                                {formatDate(todo.dueDate)}
-                            </span>
-                        )}
-
-                        {!todo.dueDate && (
-                            <span className="rounded-full bg-gray-100 text-gray-500 px-3 py-1 text-xs font-semibold">
-                                No due date
-                            </span>
-                        )}
-
-                        {todo.completed && (
-                            <span className="rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">
-                                ✓ Completed
-                            </span>
-                        )}
 
                     </div>
+
                 </div>
+
             </div>
         </div>
     );

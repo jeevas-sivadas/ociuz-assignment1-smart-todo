@@ -56,11 +56,10 @@ function DueDateOverview({
                                     : item.filter
                             )
                         }
-                        className={`rounded-xl border p-4 text-left transition ${
-                            dueDateFilter === item.filter
+                        className={`rounded-xl border p-4 text-left transition ${dueDateFilter === item.filter
                                 ? item.activeClass
                                 : item.hoverClass
-                        }`}
+                            }`}
                     >
                         <p className="text-sm text-gray-500">
                             {item.label}

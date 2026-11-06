@@ -1,47 +1,40 @@
+
 function DashboardPageHeader({
   user,
   openCreateForm
 }) {
   return (
-    <>
-      <div className="mb-6">
+    <div className="flex items-center justify-between gap-4 mb-5">
 
+      {/* Page Heading */}
+
+      <div>
         <h2 className="text-2xl font-bold text-gray-900">
-          Hello,{" "}
-          <span className="text-indigo-600">
-            {user?.name || "User"}
-          </span>
-          {" "}👋
+          My Tasks
         </h2>
 
-        <p className="text-gray-500 mt-1">
-          Organize and manage your todos
+        <p className="text-sm text-gray-500 mt-1">
+          Stay organized and get things done.
         </p>
 
-      </div>
-
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-
-        <div>
-          <h3 className="text-xl font-bold text-gray-900">
-            My Tasks
-          </h3>
-
-          <p className="text-gray-500 mt-1">
-            Create, organize and track your tasks
+        {user?.name && (
+          <p className="text-xs text-gray-400 mt-1">
+            Welcome back, {user.name}
           </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={openCreateForm}
-          className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
-        >
-          + Add Todo
-        </button>
-
+        )}
       </div>
-    </>
+
+      {/* Add Todo Button */}
+
+      <button
+        type="button"
+        onClick={openCreateForm}
+        className="flex-shrink-0 rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition"
+      >
+        + Add Todo
+      </button>
+
+    </div>
   );
 }
 

@@ -44,11 +44,10 @@ function CategoryBreakdown({
                                     isSelected ? "all" : categoryId
                                 )
                             }
-                            className={`rounded-xl border p-4 text-left transition ${
-                                isSelected
+                            className={`rounded-xl border p-4 text-left transition ${isSelected
                                     ? "border-indigo-500 bg-indigo-50"
                                     : "hover:bg-gray-50"
-                            }`}
+                                }`}
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2 min-w-0">
